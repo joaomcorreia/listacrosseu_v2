@@ -1,0 +1,6 @@
+@echo off
+echo Testing business detail pages...
+cd /d "C:\projects\listacrosseu_v2\frontend"
+echo.
+echo Starting Next.js dev server...
+npm run dev

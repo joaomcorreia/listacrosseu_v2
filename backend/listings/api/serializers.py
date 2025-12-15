@@ -1,0 +1,139 @@
+from rest_framework import serializers
+from listings.models import Country, City, Town, Category, Business, BusinessClaimRequest
+
+
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = ["id", "name", "slug"]
+
+
+class CountryWithStatsSerializer(serializers.ModelSerializer):
+    business_count = serializers.SerializerMethodField()
+    city_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Country
+        fields = ["id", "name", "slug", "business_count", "city_count"]
+    
+    def get_business_count(self, obj):
+        # Use annotated count if available, otherwise do a query
+        return getattr(obj, 'business_count', obj.businesses.count())
+    
+    def get_city_count(self, obj):
+        # Use annotated count if available, otherwise do a query  
+        return getattr(obj, 'city_count', obj.cities.count())
+
+
+class CitySerializer(serializers.ModelSerializer):
+    country = CountrySerializer()
+
+    class Meta:
+        model = City
+        fields = ["id", "name", "slug", "country"]
+
+
+class TownSerializer(serializers.ModelSerializer):
+    city = CitySerializer()
+
+    class Meta:
+        model = Town
+        fields = ["id", "name", "slug", "city"]
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    business_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Category
+        fields = ["id", "name", "slug", "business_count"]
+    
+    def get_business_count(self, obj):
+        # Use annotated count if available, otherwise do a query
+        return getattr(obj, 'business_count', obj.business_set.count())
+
+
+class BusinessSerializer(serializers.ModelSerializer):
+    country = CountrySerializer()
+    city = CitySerializer()
+    town = TownSerializer()
+    category = CategorySerializer()
+
+    country_slug = serializers.SerializerMethodField()
+    city_slug = serializers.SerializerMethodField()
+    town_slug = serializers.SerializerMethodField()
+    category_slug = serializers.SerializerMethodField()
+    canonical_path = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Business
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "tier",
+            "country",
+            "city",
+            "town",
+            "category",
+            "country_slug",
+            "city_slug",
+            "town_slug",
+            "category_slug",
+            "canonical_path",
+            "address",
+            "address_line1",
+            "postal_code",
+            "latitude",
+            "longitude",
+            "website",
+            "phone",
+            "description",
+            "keywords",
+            "logo_url",
+            "image_url",
+            "premium_content",
+            "premium_images",
+            "premium_sidebar",
+            "is_micro",
+            "employee_count",
+            "source",
+            "external_id",
+        ]
+
+    def get_country_slug(self, obj):
+        return obj.country.slug if obj.country else None
+
+    def get_city_slug(self, obj):
+        return obj.city.slug if obj.city else None
+
+    def get_town_slug(self, obj):
+        return obj.town.slug if obj.town else None
+
+    def get_category_slug(self, obj):
+        return obj.category.slug if obj.category else None
+    
+    def get_canonical_path(self, obj):
+        # Get language from request context, default to 'en'
+        request = self.context.get('request')
+        lang = getattr(request, 'LANGUAGE_CODE', 'en') if request else 'en'
+        return obj.get_canonical_path(lang)
+
+
+class BusinessClaimRequestSerializer(serializers.ModelSerializer):
+    listing = BusinessSerializer(read_only=True)
+    listing_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = BusinessClaimRequest
+        fields = [
+            "id",
+            "listing",
+            "listing_id",
+            "name",
+            "email",
+            "business_name",
+            "business_address",
+            "business_post_code",
+            "created_at",
+        ]

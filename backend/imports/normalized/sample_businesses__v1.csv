@@ -1,0 +1,6 @@
+source,source_external_id,name,description,category_primary,tags,website,email,phone,address_line1,postal_code,town,city,region,country_code,latitude,longitude,logo_url,status,notes
+sample_businesses,,Mario's Italian Restaurant,Authentic Italian cuisine in the heart of Amsterdam,Restaurant,,https://marios-restaurant.nl,info@marios-restaurant.nl,,"Herengracht 123, Amsterdam",1015 BK,,Amsterdam,,NL,,,,active,
+sample_businesses,,Tech Solutions BV,IT consulting and software development,Technology,,https://techsolutions.nl,contact@techsolutions.nl,,"Damrak 456, Amsterdam",1012 LM,,Amsterdam,,NL,,,,active,
+sample_businesses,,Café de Bloem,Cozy coffee shop with fresh pastries,Café,,,cafe@debloem.nl,,"Spuistraat 78, Amsterdam",1012 TS,,Amsterdam,,NL,,,,active,
+sample_businesses,,Green Garden Center,"Plants, garden supplies and landscaping",Garden Center,,https://greengarden.nl,info@greengarden.nl,,"Vondelpark 12, Amsterdam",1071 AA,,Amsterdam,,NL,,,,active,
+sample_businesses,,Book Corner,Independent bookstore with rare collections,Bookstore,,https://bookcorner.nl,books@corner.nl,,"Nieuwmarkt 34, Amsterdam",1011 MP,,Amsterdam,,NL,,,,active,
