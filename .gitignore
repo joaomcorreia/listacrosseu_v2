@@ -24,3 +24,7 @@ Thumbs.db
 # Root-level Python venv 
 venv/ 
 .venv/ 
+
+# Root venv (repo root) 
+venv/ 
+.venv/ 
