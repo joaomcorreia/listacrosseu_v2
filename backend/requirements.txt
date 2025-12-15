@@ -1,1 +1,10 @@
-gunicorn
+cd C:\projects\listacrosseu_v2\backend
+(
+echo Django>=5.0
+echo djangorestframework>=3.14.0
+echo django-cors-headers>=4.0.0
+echo django-filter>=23.2
+echo Pillow>=10.0.0
+echo python-decouple>=3.8
+echo gunicorn
+) > requirements.txt
