@@ -28,3 +28,11 @@ venv/
 # Root venv (repo root) 
 venv/ 
 .venv/ 
+# Local versioned artifacts
+/3.8/
+/backend/10.0.0/
+/backend/23.2/
+/backend/3.14.0/
+/backend/3.8/
+/backend/4.0.0/
+/backend/5.0/
