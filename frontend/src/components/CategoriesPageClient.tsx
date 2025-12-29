@@ -1,0 +1,233 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { normalizeLang } from "@/lib/lang";
+import {
+  fetchCategories,
+  fetchBusinesses,
+  type Category,
+  type BusinessSearchResult,
+} from "@/lib/api/listings";
+import BusinessList from "@/components/BusinessList";
+
+export default function CategoriesPageClient() {
+  const params = useParams();
+  const lang = normalizeLang(String(params?.lang || "en"));
+  
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [recentBusinesses, setRecentBusinesses] = useState<BusinessSearchResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [categoriesData, businessesData] = await Promise.all([
+          fetchCategories(),
+          fetchBusinesses({ limit: 12 }), // Show some recent businesses
+        ]);
+
+        if (cancelled) return;
+
+        setCategories(categoriesData);
+        setRecentBusinesses(businessesData);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setError("Failed to load data. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [lang]);
+
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        {/* Categories Grid Skeleton */}
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">
+            Browse by Category
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(9)].map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-lg bg-white p-6 shadow-sm"
+              >
+                <div className="h-4 bg-slate-200 rounded w-32 mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded w-20"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Businesses Skeleton */}
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">
+            Recent Listings
+          </h2>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-lg bg-white p-6 shadow-sm"
+              >
+                <div className="h-5 bg-slate-200 rounded w-48 mb-2"></div>
+                <div className="h-4 bg-slate-200 rounded w-64 mb-3"></div>
+                <div className="h-3 bg-slate-200 rounded w-full mb-1"></div>
+                <div className="h-3 bg-slate-200 rounded w-3/4"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg bg-red-50 p-6 text-center">
+        <div className="text-red-400">
+          <svg
+            className="mx-auto h-12 w-12"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
+          </svg>
+        </div>
+        <h3 className="mt-4 text-lg font-medium text-red-900">Error</h3>
+        <p className="mt-2 text-red-600">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-12">
+      {/* Development debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="text-xs bg-yellow-50 border border-yellow-200 p-2 rounded">
+          <strong>🐛 Debug:</strong> {categories.length} categories | Recent businesses: {recentBusinesses?.results?.length || 0} of {recentBusinesses?.total || 0} total
+        </div>
+      )}
+
+      {/* All Categories */}
+      {categories.length > 0 && (
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">
+            Business Categories
+          </h2>
+          <p className="text-slate-600 mb-6">
+            Explore businesses organized by industry and specialization.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/${lang}/categories/${category.slug}`}
+                  className="group rounded-lg bg-white p-6 shadow-sm hover:shadow-md transition-all hover:scale-105"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium text-slate-900 group-hover:text-purple-600 transition-colors">
+                        {category.name}
+                      </h3>
+                      <p className="text-sm text-slate-600">
+                        {category.business_count ? `${category.business_count.toLocaleString()} businesses` : 'Browse listings'}
+                      </p>
+                    </div>
+                    <div className="text-slate-400 group-hover:text-purple-600 transition-colors">
+                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Businesses */}
+      {recentBusinesses && recentBusinesses.results.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                Recent Listings
+              </h2>
+              <p className="text-slate-600">
+                Latest businesses added to our directory.
+              </p>
+            </div>
+            <Link
+              href={`/${lang}/search`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-purple-600 hover:text-purple-800 transition-colors"
+            >
+              View all
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+              </svg>
+            </Link>
+          </div>
+          <BusinessList businesses={recentBusinesses.results} />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {categories.length === 0 && !loading && (
+        <div className="rounded-lg bg-white p-12 text-center shadow-sm">
+          <div className="text-slate-400">
+            <svg
+              className="mx-auto h-12 w-12"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
+          </div>
+          <h3 className="mt-4 text-lg font-medium text-slate-900">
+            No categories available
+          </h3>
+          <p className="mt-2 text-slate-600">
+            We're organizing our business categories. Please check back soon!
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
