@@ -8,3 +8,5 @@ export default function BusinessDetailLangPage() {
     </Layout>
   );
 }
+
+// Force rebuild
