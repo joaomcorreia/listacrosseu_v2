@@ -1,5 +1,13 @@
+import logging
+import uuid
+
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db.models import Q, Count
+from django.utils import timezone
 from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from listings.models import Business, Country, City, Town, Category, BusinessClaimRequest
@@ -12,6 +20,8 @@ from .serializers import (
     CategorySerializer,
     BusinessClaimRequestSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class BusinessList(generics.ListAPIView):
@@ -69,6 +79,78 @@ class BusinessClaimRequestCreate(generics.CreateAPIView):
     queryset = BusinessClaimRequest.objects.all()
     serializer_class = BusinessClaimRequestSerializer
 
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def create_claim(request):
+    """
+    POST /api/claims
+    Create new business claim and send verification email
+    """
+    data = request.data
+
+    business_id = data.get("business_id") or data.get("listing_id")
+    business = Business.objects.filter(id=business_id).first() if business_id else None
+
+    claim = BusinessClaimRequest.objects.create(
+        listing=business,
+        name=data.get("name"),
+        email=data.get("email"),
+        business_name=data.get("business_name"),
+        business_address=data.get("business_address"),
+        business_post_code=data.get("business_post_code"),
+    )
+
+    verification_base_url = settings.FRONTEND_SITE_URL or settings.PUBLIC_SITE_URL or ""
+    verification_url = f"{verification_base_url.rstrip('/')}/verify?token={claim.verification_token}" if verification_base_url else f"/verify?token={claim.verification_token}"
+    logger.info("Attempting to send verification email for claim_id=%s", claim.id)
+
+    try:
+        send_mail(
+            subject="Verify your business claim on ListAcross.eu",
+            message=f"Click here to verify: {verification_url}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[claim.email],
+            fail_silently=False,
+        )
+        logger.info("Verification email sent for claim_id=%s", claim.id)
+    except Exception as e:
+        logger.exception("Verification email failed for claim_id=%s", claim.id)
+        raise
+
+    return Response(
+        {"message": "Verification email sent", "claim_id": claim.id},
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def verify_claim(request):
+    """
+    GET /api/verify?token=xxx
+    Verify business claim token
+    """
+    token = request.GET.get("token")
+
+    if not token:
+        return Response({"error": "Token required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        claim = BusinessClaimRequest.objects.get(verification_token=token)
+
+        if claim.status == "verified":
+            return Response({"message": "Already verified"})
+
+        claim.status = "verified"
+        claim.verified_at = timezone.now()
+        claim.save()
+
+        return Response(
+            {"message": "Claim verified successfully", "business_name": claim.business_name}
+        )
+    except BusinessClaimRequest.DoesNotExist:
+        return Response({"error": "Invalid token"}, status=status.HTTP_404_NOT_FOUND)
+
 
 class BusinessSearchView(APIView):
     """
@@ -84,13 +166,17 @@ class BusinessSearchView(APIView):
     - offset: pagination offset (default 0)
     """
 
+
+
     def get(self, request, *args, **kwargs):
         qs = Business.objects.all().select_related("country", "city", "category")
 
         q = (request.query_params.get("q") or "").strip()
         country = (request.query_params.get("country") or "").strip()
         city = (request.query_params.get("city") or "").strip()
+        town = (request.query_params.get("town") or "").strip()
         category = (request.query_params.get("category") or "").strip()
+        tier_filter = (request.query_params.get("tier") or "").strip()
         is_micro = (request.query_params.get("is_micro") or "").strip()
         try:
             limit = int(request.query_params.get("limit", 20))
@@ -117,12 +203,19 @@ class BusinessSearchView(APIView):
                 | Q(website__icontains=q)
             )
 
-        # Country filter (slug or name)
+        country_obj = None
+
+        # Country filter (slug, name, or code)
         if country:
-            qs = qs.filter(
-                Q(country__slug__iexact=country)
-                | Q(country__name__iexact=country)
-            )
+            try:
+                country_obj = Country.objects.get(
+                    Q(slug__iexact=country)
+                    | Q(code__iexact=country)
+                    | Q(name__iexact=country)
+                )
+            except Country.DoesNotExist:
+                return Response({"detail": "Country not found"}, status=status.HTTP_404_NOT_FOUND)
+            qs = qs.filter(country=country_obj)
 
         # City filter (slug or name)
         if city:
@@ -131,12 +224,98 @@ class BusinessSearchView(APIView):
                 | Q(city__name__iexact=city)
             )
 
+        # Town filter (slug or name)
+        if town:
+            qs = qs.filter(
+                Q(town__slug__iexact=town)
+                | Q(town__name__iexact=town)
+            )
+
         # Category filter (slug or name)
         if category:
             qs = qs.filter(
                 Q(category__slug__iexact=category)
                 | Q(category__name__iexact=category)
             )
+
+        # Visibility rules
+        country_code = None
+        if town:
+            town_obj = Town.objects.filter(
+                Q(slug__iexact=town) | Q(name__iexact=town)
+            ).select_related("city__country").first()
+            if town_obj and town_obj.city and town_obj.city.country and town_obj.city.country.code:
+                country_code = town_obj.city.country.code.upper()
+        elif city:
+            city_obj = City.objects.filter(
+                Q(slug__iexact=city) | Q(name__iexact=city)
+            ).select_related("country").first()
+            if city_obj and city_obj.country and city_obj.country.code:
+                country_code = city_obj.country.code.upper()
+        elif country:
+            if country_obj and country_obj.code:
+                country_code = country_obj.code.upper()
+            elif len(country) == 2:
+                country_code = country.upper()
+
+        if town:
+            if country_code:
+                qs = qs.filter(
+                    Q(tier__in=["free", "claimed"])
+                    | Q(
+                        tier="premium",
+                        visibility_scope="eu",
+                    )
+                    | Q(
+                        tier="premium",
+                        visibility_scope="country",
+                        visibility_country__iexact=country_code,
+                    )
+                )
+            else:
+                qs = qs.filter(
+                    Q(tier__in=["free", "claimed"])
+                    | Q(tier="premium", visibility_scope="eu")
+                )
+        elif city:
+            if country_code:
+                qs = qs.filter(
+                    Q(tier="claimed")
+                    | Q(
+                        tier="premium",
+                        visibility_scope="eu",
+                    )
+                    | Q(
+                        tier="premium",
+                        visibility_scope="country",
+                        visibility_country__iexact=country_code,
+                    )
+                )
+            else:
+                qs = qs.filter(
+                    Q(tier="claimed")
+                    | Q(tier="premium", visibility_scope="eu")
+                )
+        elif country:
+            if country_code:
+                qs = qs.filter(
+                    Q(
+                        tier="premium",
+                        visibility_scope="eu",
+                    )
+                    | Q(
+                        tier="premium",
+                        visibility_scope="country",
+                        visibility_country__iexact=country_code,
+                    )
+                )
+            else:
+                qs = qs.filter(tier="premium", visibility_scope="eu")
+        else:
+            qs = qs.filter(tier="premium", visibility_scope="eu")
+
+        if tier_filter in {"free", "claimed", "premium"}:
+            qs = qs.filter(tier=tier_filter)
 
         # Micro business filter
         if is_micro:
@@ -157,7 +336,9 @@ class BusinessSearchView(APIView):
 
 
 class DebugListingsSampleView(APIView):
-    """Debug endpoint - returns first 20 listings with all fields"""
+    """Debug endpoint - returns first 20 listings with all fields."""
+
+    permission_classes = [IsAdminUser]
     
     def get(self, request):
         listings = Business.objects.select_related('country', 'city', 'category')[:20]
@@ -456,20 +637,51 @@ class FeaturedBusinessListView(APIView):
         qs = Business.objects.select_related('country', 'city', 'town', 'category')
         
         if scope == 'eu':
-            # EU-wide: Only premium businesses for maximum visibility
-            qs = qs.filter(tier='premium')
-        elif scope == 'country' and country_slug:
-            # Country-wide: Premium + claimed businesses
+            # EU-wide: premium listings with EU-wide visibility only
+            qs = qs.filter(tier="premium", visibility_scope="eu")
+        elif scope == 'country':
+            # Country-wide: premium only, plus visibility scope rules
+            country_param = (country_slug or "").strip()
+            if not country_param:
+                return Response({'error': 'country parameter is required'}, status=400)
             try:
-                country = Country.objects.get(slug=country_slug)
-                qs = qs.filter(country=country, tier__in=['claimed', 'premium'])
+                country = Country.objects.get(
+                    Q(slug__iexact=country_param)
+                    | Q(code__iexact=country_param)
+                    | Q(name__iexact=country_param)
+                )
+                country_code = (country.code or "").upper()
+                qs = qs.filter(country=country, tier="premium")
+                if country_code:
+                    qs = qs.filter(
+                        Q(visibility_scope="eu")
+                        | Q(visibility_scope="country", visibility_country__iexact=country_code)
+                    )
+                else:
+                    qs = qs.filter(visibility_scope="eu")
             except Country.DoesNotExist:
                 return Response({'error': 'Country not found'}, status=404)
         elif scope == 'city' and city_slug:
-            # City-wide: All tiers, but ordered by tier priority
+            # City-wide: claimed + premium, plus visibility scope rules
             try:
                 city = City.objects.get(slug=city_slug)
-                qs = qs.filter(city=city)
+                country_code = (city.country.code or "").upper() if city.country else ""
+                qs = qs.filter(city=city, tier__in=["claimed", "premium"])
+                if country_code:
+                    qs = qs.filter(
+                        Q(tier="claimed")
+                        | Q(tier="premium", visibility_scope="eu")
+                        | Q(
+                            tier="premium",
+                            visibility_scope="country",
+                            visibility_country__iexact=country_code,
+                        )
+                    )
+                else:
+                    qs = qs.filter(
+                        Q(tier="claimed")
+                        | Q(tier="premium", visibility_scope="eu")
+                    )
             except City.DoesNotExist:
                 return Response({'error': 'City not found'}, status=404)
         else:
@@ -502,3 +714,8 @@ class FeaturedBusinessListView(APIView):
             'count': len(businesses),
             'results': serializer.data
         })
+
+
+
+
+

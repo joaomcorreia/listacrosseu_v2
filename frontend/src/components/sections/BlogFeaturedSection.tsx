@@ -18,6 +18,7 @@ interface Section {
 
 interface BlogFeaturedSectionProps {
   section: Section;
+  lang?: string;
 }
 
 export function BlogFeaturedSection({ section }: BlogFeaturedSectionProps) {

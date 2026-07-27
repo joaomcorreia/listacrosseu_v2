@@ -2,7 +2,7 @@
 Geo-specific API views for city and location pages.
 These endpoints are optimized for the frontend location pages.
 """
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,13 +27,32 @@ class CityBusinessesView(APIView):
     def get(self, request, city_slug):
         try:
             city = City.objects.get(slug=city_slug)
+            country_code = (city.country.code or "").upper() if city.country else ""
             businesses = Business.objects.filter(city=city).select_related("country", "city", "town", "category")
+            if country_code:
+                businesses = businesses.filter(
+                    Q(tier="claimed")
+                    | Q(tier="premium", visibility_scope="eu")
+                    | Q(
+                        tier="premium",
+                        visibility_scope="country",
+                        visibility_country__iexact=country_code,
+                    )
+                )
+            else:
+                businesses = businesses.filter(
+                    Q(tier="claimed")
+                    | Q(tier="premium", visibility_scope="eu")
+                )
             
             # Apply pagination
             limit = min(int(request.query_params.get('limit', 20)), 100)
             offset = int(request.query_params.get('offset', 0))
             
             total_count = businesses.count()
+            businesses = list(businesses)
+            tier_order = {"premium": 1, "claimed": 2, "free": 3}
+            businesses.sort(key=lambda b: (tier_order.get(b.tier, 4), b.created_at))
             businesses = businesses[offset:offset + limit]
             
             serializer = BusinessSerializer(businesses, many=True)
@@ -64,13 +83,32 @@ class TownBusinessesView(APIView):
     def get(self, request, town_slug):
         try:
             town = Town.objects.get(slug=town_slug)
+            country_code = (town.city.country.code or "").upper() if town.city and town.city.country else ""
             businesses = Business.objects.filter(town=town).select_related("country", "city", "town", "category")
+            if country_code:
+                businesses = businesses.filter(
+                    Q(tier__in=["free", "claimed"])
+                    | Q(tier="premium", visibility_scope="eu")
+                    | Q(
+                        tier="premium",
+                        visibility_scope="country",
+                        visibility_country__iexact=country_code,
+                    )
+                )
+            else:
+                businesses = businesses.filter(
+                    Q(tier__in=["free", "claimed"])
+                    | Q(tier="premium", visibility_scope="eu")
+                )
             
             # Apply pagination
             limit = min(int(request.query_params.get('limit', 20)), 100)
             offset = int(request.query_params.get('offset', 0))
             
             total_count = businesses.count()
+            businesses = list(businesses)
+            tier_order = {"premium": 1, "claimed": 2, "free": 3}
+            businesses.sort(key=lambda b: (tier_order.get(b.tier, 4), b.created_at))
             businesses = businesses[offset:offset + limit]
             
             serializer = BusinessSerializer(businesses, many=True)

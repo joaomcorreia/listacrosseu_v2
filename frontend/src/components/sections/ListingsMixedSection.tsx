@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import BusinessCard from '@/components/BusinessCard';
 import ClaimBusinessModal from '@/components/ClaimBusinessModal';
 import { useModal } from '@/hooks/useModal';
 import { fetchCountries, fetchBusinessesByLocation, Business, Country } from '@/lib/api/listings';
+import { useTranslations } from '@/i18n/translations';
+import AdPlaceholder from '@/components/ads/AdPlaceholder';
+import { debugLog } from '@/lib/debug';
 
 interface SectionSettings {
   source?: 'manual' | 'auto';
@@ -38,29 +41,64 @@ interface CountryWithBusinesses {
 }
 
 export default function ListingsMixedSection({ section, lang = 'en' }: ListingsMixedSectionProps) {
+  const t = useTranslations(lang);
+  const formatText = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [key, value]) =>
+        result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
+      template,
+    );
+
   const [countriesWithBusinesses, setCountriesWithBusinesses] = useState<CountryWithBusinesses[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const lastFetchKey = useRef<string | null>(null);
   
   // Modal state
   const claimModal = useModal();
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
 
+  const normalizedKey = (section.key || "").toLowerCase();
+  const premiumOnly =
+    (section.settings?.includeTiers?.length || 0) === 1 &&
+    section.settings?.includeTiers?.[0] === "premium";
+  const isHomeBusinesses =
+    normalizedKey === "home_businesses" ||
+    normalizedKey === "homepage_businesses" ||
+    normalizedKey === "home_listings" ||
+    normalizedKey === "homepage_listings" ||
+    normalizedKey === "businesses";
+  const premiumOnlySection = premiumOnly || isHomeBusinesses || section.type === "listings_mixed";
+
+  const limitPerCountry = useMemo(
+    () => section.settings?.limitPerCountry || 10,
+    [section.settings?.limitPerCountry]
+  );
+  const maxCountries = useMemo(
+    () => section.settings?.maxCountries || 10,
+    [section.settings?.maxCountries]
+  );
+
   useEffect(() => {
+    let cancelled = false;
+    const fetchKey = `${section.id}-${limitPerCountry}-${maxCountries}-${lang}`;
+    if (lastFetchKey.current === fetchKey) {
+      return;
+    }
+    lastFetchKey.current = fetchKey;
+
     async function fetchBusinessesByCountry() {
       try {
         setLoading(true);
         setError(null);
-
-        const settings = section.settings || {};
-        const limitPerCountry = settings.limitPerCountry || 6; // 6 businesses per country
-        const maxCountries = settings.maxCountries || 10; // Maximum countries to show
         
         // First, fetch countries that have businesses
         const countries = await fetchCountries();
         
-        // Take only the first maxCountries to avoid too many API calls
-        const selectedCountries = countries.slice(0, maxCountries);
+        // Premium-only homepage section must show all countries that have premium listings.
+        const selectedCountries = premiumOnlySection
+          ? countries
+          : countries.slice(0, maxCountries);
         
         // Initialize state with countries and empty businesses
         const initialState: CountryWithBusinesses[] = selectedCountries.map(country => ({
@@ -69,7 +107,9 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
           loading: true,
           error: null
         }));
-        setCountriesWithBusinesses(initialState);
+        if (!cancelled) {
+          setCountriesWithBusinesses(initialState);
+        }
 
         // Fetch businesses for each country in parallel
         const countryPromises = selectedCountries.map(async (country, index) => {
@@ -77,61 +117,85 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
             const businessResult = await fetchBusinessesByLocation(
               country.slug,
               undefined,
-              { limit: limitPerCountry }
+              premiumOnlySection ? { limit: limitPerCountry, tier: "premium" } : { limit: limitPerCountry }
             );
-            
+
+            const rawBusinesses = businessResult.results || [];
+            const premiumBusinesses = premiumOnlySection
+              ? rawBusinesses.filter((business) => getBusinessTier(business) === "premium")
+              : rawBusinesses;
+
             return {
               index,
-              businesses: businessResult.results || [],
+              businesses: premiumBusinesses,
               error: null
             };
           } catch (err) {
-            console.error(`Error fetching businesses for ${country.name}:`, err);
+            console.warn(`Country listings failed for ${country.name}:`, err);
             return {
               index,
               businesses: [],
-              error: err instanceof Error ? err.message : 'Failed to load businesses'
+              error: formatText(t.home.listingsMixed.errorCountry, { country: country.name })
             };
           }
         });
 
         // Wait for all country fetches to complete
-        const results = await Promise.all(countryPromises);
+        const settled = await Promise.allSettled(countryPromises);
+        const results = settled.map((item, idx) => {
+          if (item.status === "fulfilled") {
+            return item.value;
+          }
+          console.warn(`Country listings promise rejected for ${selectedCountries[idx]?.name || "unknown"}`, item.reason);
+          return {
+            index: idx,
+            businesses: [],
+            error: formatText(t.home.listingsMixed.errorCountry, { country: selectedCountries[idx]?.name || "Unknown" })
+          };
+        });
         
         // Update state with the fetched businesses
-        setCountriesWithBusinesses(prev => 
-          prev.map((item, index) => {
-            const result = results.find(r => r.index === index);
-            return {
-              ...item,
-              businesses: result?.businesses || [],
-              loading: false,
-              error: result?.error || null
-            };
-          })
-        );
+        if (!cancelled) {
+          setCountriesWithBusinesses(prev => 
+            prev.map((item, index) => {
+              const result = results.find(r => r.index === index);
+              return {
+                ...item,
+                businesses: result?.businesses || [],
+                loading: false,
+                error: result?.error || null
+              };
+            })
+          );
+        }
 
         if (process.env.NODE_ENV === 'development') {
           const totalBusinesses = results.reduce((sum, r) => sum + r.businesses.length, 0);
-          console.log(`[DEV] Country-grouped listings loaded: ${totalBusinesses} businesses across ${selectedCountries.length} countries`);
+          debugLog(`[DEV] Country-grouped listings loaded: ${totalBusinesses} businesses across ${selectedCountries.length} countries`);
         }
       } catch (err) {
         console.error('Error fetching countries or businesses:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load businesses';
-        setError(errorMessage);
-        setCountriesWithBusinesses([]);
+        if (!cancelled) {
+          setError(t.home.listingsMixed.errorBody);
+          setCountriesWithBusinesses([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     fetchBusinessesByCountry();
-  }, [section]);
+    return () => {
+      cancelled = true;
+    };
+  }, [section.id, limitPerCountry, maxCountries, lang]);
 
   if (loading) {
     return (
       <section className="py-8 md:py-12">
-        <div className="container mx-auto px-4">
+        <div className="mx-auto max-w-7xl px-4">
           {section.title && (
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
               {section.title}
@@ -148,7 +212,7 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
             {[...Array(3)].map((_, countryIndex) => (
               <div key={countryIndex}>
                 <div className="h-8 bg-gray-200 animate-pulse rounded mb-6 w-48"></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {[...Array(6)].map((_, i) => (
                     <div key={i} className="bg-gray-100 animate-pulse rounded-lg h-64"></div>
                   ))}
@@ -164,7 +228,7 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
   if (error) {
     return (
       <section className="py-8 md:py-12">
-        <div className="container mx-auto px-4">
+        <div className="mx-auto max-w-7xl px-4">
           {section.title && (
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
               {section.title}
@@ -172,7 +236,7 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
           )}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-yellow-800">
-              Unable to load businesses at this time. Please try again later.
+              {t.home.listingsMixed.errorBody}
             </p>
             <p className="text-sm text-yellow-600 mt-1">{error}</p>
           </div>
@@ -189,14 +253,26 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
   if (countriesWithData.length === 0) {
     return (
       <section className="py-8 md:py-12">
-        <div className="container mx-auto px-4">
-          {section.title && (
+        <div className="mx-auto max-w-7xl px-4">
+          {(section.title || premiumOnlySection) && (
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
-              {section.title}
+              {premiumOnlySection ? t.home.listingsMixed.premiumTitle : section.title}
             </h2>
           )}
           <div className="text-center py-12">
-            <p className="text-gray-600">No businesses found.</p>
+            <p className="text-gray-600">
+              {premiumOnlySection ? t.home.listingsMixed.premiumEmpty : t.home.listingsMixed.empty}
+            </p>
+            {premiumOnlySection && (
+              <div className="mt-6">
+                <a
+                  href={`/${lang}/pricing`}
+                  className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  {t.home.listingsMixed.premiumCta}
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -205,7 +281,7 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
 
   return (
     <section className="py-8 md:py-12">
-      <div className="container mx-auto px-4">
+      <div className="mx-auto max-w-7xl px-4">
         {section.title && (
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
             {section.title}
@@ -219,9 +295,9 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
         
         {/* Country-grouped listings */}
         <div className="space-y-12">
-          {countriesWithData.map((countryData) => (
-            <div key={countryData.country.id}>
-              {/* Country header with flag emoji */}
+          {countriesWithData.map((countryData, index) => (
+            <div key={countryData.country.id} className="space-y-8">
+              {/* Country header with country code */}
               <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center">
                 <span className="text-2xl mr-3">
                   {getCountryFlag(countryData.country.slug)}
@@ -231,7 +307,7 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
               
               {/* Country businesses */}
               {countryData.loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {[...Array(6)].map((_, i) => (
                     <div key={i} className="bg-gray-100 animate-pulse rounded-lg h-64"></div>
                   ))}
@@ -239,24 +315,38 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
               ) : countryData.error ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <p className="text-red-800">
-                    Unable to load businesses for {countryData.country.name}.
+                    {formatText(t.home.listingsMixed.errorCountry, { country: countryData.country.name })}
                   </p>
                 </div>
               ) : countryData.businesses.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {countryData.businesses.map((business) => (
-                    <BusinessCard 
-                      key={business.id} 
-                      business={business as any} 
-                      lang={lang}
-                      onClaim={() => {
-                        setSelectedBusiness(business);
-                        claimModal.openModal();
-                      }}
-                    />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {(premiumOnlySection
+                    ? countryData.businesses
+                    : selectBusinessesForCountry(countryData.businesses)
+                  ).map((business) => (
+                    <div
+                      key={business.id}
+                      className={getBusinessTier(business) === "premium" ? "lg:col-span-2" : ""}
+                    >
+                      <BusinessCard 
+                        business={business as any} 
+                        lang={lang}
+                        onClaim={() => {
+                          setSelectedBusiness(business);
+                          claimModal.openModal();
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : null}
+              {(index + 1) % 2 === 0 && index < countriesWithData.length - 1 && (
+                <div className="py-8">
+                  <div className="mx-auto max-w-4xl px-4">
+                    <AdPlaceholder variant="banner" />
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -265,50 +355,41 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
         isOpen={claimModal.isOpen} 
         onClose={claimModal.closeModal}
         business={(selectedBusiness as any) || undefined}
-        onSubmit={async (data) => {
-          console.log('Demo claim submission:', data);
-          alert(`Demo: Claim submitted for ${data.business_name}! In production, this would process the claim request.`);
-        }}
       />
     </section>
   );
 }
 
-// Helper function to get country flag emoji based on country slug
+// Helper function to get a short country label based on country slug
 function getCountryFlag(countrySlug: string): string {
-  const flagMap: Record<string, string> = {
-    'pt': '🇵🇹', // Portugal
-    'es': '🇪🇸', // Spain  
-    'fr': '🇫🇷', // France
-    'it': '🇮🇹', // Italy
-    'de': '🇩🇪', // Germany
-    'nl': '🇳🇱', // Netherlands
-    'be': '🇧🇪', // Belgium
-    'at': '🇦🇹', // Austria
-    'ch': '🇨🇭', // Switzerland
-    'lu': '🇱🇺', // Luxembourg
-    'dk': '🇩🇰', // Denmark
-    'se': '🇸🇪', // Sweden
-    'no': '🇳🇴', // Norway
-    'fi': '🇫🇮', // Finland
-    'is': '🇮🇸', // Iceland
-    'ie': '🇮🇪', // Ireland
-    'gb': '🇬🇧', // United Kingdom
-    'pl': '🇵🇱', // Poland
-    'cz': '🇨🇿', // Czech Republic
-    'sk': '🇸🇰', // Slovakia
-    'hu': '🇭🇺', // Hungary
-    'si': '🇸🇮', // Slovenia
-    'hr': '🇭🇷', // Croatia
-    'bg': '🇧🇬', // Bulgaria
-    'ro': '🇷🇴', // Romania
-    'gr': '🇬🇷', // Greece
-    'cy': '🇨🇾', // Cyprus
-    'mt': '🇲🇹', // Malta
-    'ee': '🇪🇪', // Estonia
-    'lv': '🇱🇻', // Latvia
-    'lt': '🇱🇹', // Lithuania
-  };
-  
-  return flagMap[countrySlug] || '🏳️';
+  const code = (countrySlug || "").toUpperCase();
+  return code.length > 2 ? code.slice(0, 2) : code;
 }
+
+function getBusinessTier(business: Business): string {
+  return (business.tier || (business as any).plan_type || "free").toString();
+}
+
+function selectBusinessesForCountry(businesses: Business[]): Business[] {
+  const tiered = businesses.map((business) => ({
+    business,
+    tier: getBusinessTier(business),
+  }));
+
+  const premiums = tiered
+    .filter((item) => item.tier === "premium")
+    .slice(0, 3)
+    .map((item) => item.business);
+
+  const claimed = tiered
+    .filter((item) => item.tier === "claimed")
+    .map((item) => item.business);
+
+  const free = tiered
+    .filter((item) => item.tier !== "premium" && item.tier !== "claimed")
+    .map((item) => item.business);
+
+  const combined = [...premiums, ...claimed, ...free];
+  return combined.slice(0, 10);
+}
+

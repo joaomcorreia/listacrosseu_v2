@@ -1,9 +1,12 @@
+import { debugLog } from "@/lib/debug";
+import { PUBLIC_API_BASE_URL } from "@/lib/env.public";
+
 /**
  * API client for geographical endpoints (cities, countries)
  * Connects to Django REST Framework backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = PUBLIC_API_BASE_URL;
 
 // Type definitions
 export interface Country {
@@ -28,7 +31,7 @@ interface FetchCitiesOptions {
 
 // Debug logging in development
 if (process.env.NODE_ENV === 'development') {
-  console.log("Geo API base URL:", API_BASE_URL);
+  debugLog("Geo API base URL:", API_BASE_URL);
 }
 
 /**
@@ -44,7 +47,7 @@ export async function fetchCities(options: FetchCitiesOptions = {}): Promise<Cit
   const url = `/api/geo/cities/${params.toString() ? '?' + params.toString() : ''}`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchCities URL:", url);
+    debugLog("fetchCities URL:", url);
   }
   
   const response = await fetch(url, {
@@ -77,7 +80,7 @@ export async function fetchCountries(): Promise<Country[]> {
   const url = `/api/geo/countries/`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchCountries URL:", url);
+    debugLog("fetchCountries URL:", url);
   }
   
   const response = await fetch(url, {
@@ -110,7 +113,7 @@ export async function fetchCityBySlug(slug: string): Promise<City | null> {
   const url = `/api/geo/cities/${slug}/`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchCityBySlug URL:", url);
+    debugLog("fetchCityBySlug URL:", url);
   }
   
   const response = await fetch(url, {
@@ -129,3 +132,5 @@ export async function fetchCityBySlug(slug: string): Promise<City | null> {
 
   return response.json();
 }
+
+

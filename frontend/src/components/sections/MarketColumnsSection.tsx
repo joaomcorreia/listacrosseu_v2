@@ -18,6 +18,7 @@ interface Section {
 
 interface MarketColumnsSectionProps {
   section: Section;
+  lang?: string;
 }
 
 export function MarketColumnsSection({ section }: MarketColumnsSectionProps) {

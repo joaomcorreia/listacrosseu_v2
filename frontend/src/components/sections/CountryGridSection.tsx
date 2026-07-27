@@ -18,6 +18,7 @@ interface Section {
 
 interface CountryGridSectionProps {
   section: Section;
+  lang?: string;
 }
 
 export function CountryGridSection({ section }: CountryGridSectionProps) {

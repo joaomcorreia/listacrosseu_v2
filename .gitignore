@@ -1,33 +1,55 @@
-# Frontend (Next.js) 
-frontend/node_modules/ 
-frontend/.next/ 
-frontend/out/ 
-frontend/.vercel/ 
-frontend/.env.local 
-frontend/.env.* 
-!frontend/.env.example 
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.env.local
+frontend/.env.*
+!frontend/.env.example
+frontend/export/
+frontend/src/i18n.zip
+frontend/extractor_log.txt
+frontend/Node.js
+frontend/Node_js_backup
 
-# Backend (Python/Django) 
-backend/__pycache__/ 
-backend/*.sqlite3 
-backend/*.log 
-backend/.venv/ 
-backend/venv/ 
-backend/staticfiles/ 
+# Backend (Python/Django)
+backend/__pycache__/
+backend/*.sqlite3
+backend/*.sqlite3-journal
+backend/*.sqlite3-wal
+backend/*.log
+backend/.venv/
+backend/venv/
+backend/staticfiles/
+backend/media/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/OPENAI_API_KEY
+backend/Node.js
+backend/python
+backend/set
+backend/cd
 
-# General 
-.DS_Store 
-Thumbs.db 
-.vscode/ 
-.idea/ 
+# Local packaging and artifacts
+EXPORT_PACK/
+EXPORT_PACK.zip
+Austria.txt
+filelist.txt
+magicai_client.py
+magicai_frontend.js
 
-# Root-level Python venv 
-venv/ 
-.venv/ 
+# General
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.pytest_cache/
 
-# Root venv (repo root) 
-venv/ 
-.venv/ 
+# Root-level Python envs
+venv/
+.venv/
+
 # Local versioned artifacts
 /3.8/
 /backend/10.0.0/

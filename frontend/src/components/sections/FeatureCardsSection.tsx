@@ -18,6 +18,7 @@ interface Section {
 
 interface FeatureCardsSectionProps {
   section: Section;
+  lang?: string;
 }
 
 export function FeatureCardsSection({ section }: FeatureCardsSectionProps) {

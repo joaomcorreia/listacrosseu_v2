@@ -1,3 +1,5 @@
+import { useTranslations } from '@/i18n/translations';
+
 interface SectionItem {
   id: number;
   title: string;
@@ -20,7 +22,8 @@ interface WhoItsForSectionProps {
   lang?: string;
 }
 
-export function WhoItsForSection({ section }: WhoItsForSectionProps) {
+export function WhoItsForSection({ section, lang = "en" }: WhoItsForSectionProps) {
+  const t = useTranslations(lang);
   const sortedItems = [...section.items].sort((a, b) => a.order - b.order);
   const goodFitItems = sortedItems.filter(item => item.meta?.group === 'Good fit');
   const notFitItems = sortedItems.filter(item => item.meta?.group === 'Not a fit (yet)');
@@ -39,9 +42,9 @@ export function WhoItsForSection({ section }: WhoItsForSectionProps) {
           <div>
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                <span className="text-emerald-600 text-lg font-bold">✓</span>
+                <span className="text-emerald-600 text-lg font-bold">OK</span>
               </div>
-              <h3 className="text-xl font-semibold text-slate-900">Good fit</h3>
+              <h3 className="text-xl font-semibold text-slate-900">{t.home.whoItsFor.goodFitLabel}</h3>
             </div>
             <div className="space-y-4">
               {goodFitItems.map((item) => (
@@ -57,9 +60,9 @@ export function WhoItsForSection({ section }: WhoItsForSectionProps) {
           <div>
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                <span className="text-red-600 text-lg font-bold">✗</span>
+                <span className="text-red-600 text-lg font-bold">NO</span>
               </div>
-              <h3 className="text-xl font-semibold text-slate-900">Not a fit (yet)</h3>
+              <h3 className="text-xl font-semibold text-slate-900">{t.home.whoItsFor.notFitLabel}</h3>
             </div>
             <div className="space-y-4">
               {notFitItems.map((item) => (

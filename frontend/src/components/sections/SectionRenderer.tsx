@@ -16,6 +16,7 @@ import { FinalCtaSection } from '@/components/sections/FinalCtaSection';
 import { TopCitiesSection } from '@/components/sections/TopCitiesSection';
 import ListingsMixedSection from '@/components/sections/ListingsMixedSection';
 import ListingsTierSection from '@/components/sections/ListingsTierSection';
+import { useTranslations } from '@/i18n/translations';
 
 interface SectionItem {
   id: number;
@@ -52,6 +53,14 @@ interface SectionRendererProps {
 }
 
 export default function SectionRenderer({ section, lang, breadcrumbs }: SectionRendererProps) {
+  const t = useTranslations(lang || 'en');
+  const formatText = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [key, value]) =>
+        result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
+      template,
+    );
+
   // In development, show warnings for unknown section types
   const isDevelopment = process.env.NODE_ENV === 'development';
   
@@ -125,13 +134,17 @@ export default function SectionRenderer({ section, lang, breadcrumbs }: SectionR
       default:
         // Unknown section type - don't crash the site
         if (isDevelopment) {
+          const message = formatText(t.home.sectionRenderer.devWarning, {
+            type: section.type,
+            key: section.key,
+          });
+
           return (
             <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 my-4">
               <div className="flex">
                 <div className="ml-3">
                   <p className="text-sm text-yellow-700">
-                    <strong>Development Warning:</strong> Unknown section type "{section.type}" 
-                    for section "{section.key}"
+                    <strong>{message}</strong>
                   </p>
                 </div>
               </div>

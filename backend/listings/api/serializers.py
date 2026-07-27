@@ -5,7 +5,7 @@ from listings.models import Country, City, Town, Category, Business, BusinessCla
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
-        fields = ["id", "name", "slug"]
+        fields = ["id", "name", "slug", "code"]
 
 
 class CountryWithStatsSerializer(serializers.ModelSerializer):
@@ -14,7 +14,7 @@ class CountryWithStatsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Country
-        fields = ["id", "name", "slug", "business_count", "city_count"]
+        fields = ["id", "name", "slug", "code", "business_count", "city_count"]
     
     def get_business_count(self, obj):
         # Use annotated count if available, otherwise do a query
@@ -72,6 +72,9 @@ class BusinessSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "tier",
+            "visibility_scope",
+            "visibility_country",
+            "premium_layout_width",
             "country",
             "city",
             "town",

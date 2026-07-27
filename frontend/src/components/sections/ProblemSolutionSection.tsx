@@ -1,3 +1,5 @@
+import { useTranslations } from '@/i18n/translations';
+
 interface Section {
   id: number;
   key: string;
@@ -12,7 +14,8 @@ interface ProblemSolutionSectionProps {
   lang?: string;
 }
 
-export function ProblemSolutionSection({ section }: ProblemSolutionSectionProps) {
+export function ProblemSolutionSection({ section, lang = "en" }: ProblemSolutionSectionProps) {
+  const t = useTranslations(lang);
   const problemPoints = (section.body || '').split('\n\n').filter(line => line.trim());
   
   return (
@@ -28,7 +31,9 @@ export function ProblemSolutionSection({ section }: ProblemSolutionSectionProps)
           {problemPoints.map((point, index) => (
             <div key={index} className="flex items-start gap-4 p-6 bg-white rounded-lg border border-slate-200">
               <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                <span className="text-red-600 text-sm font-bold">✗</span>
+                <span className="text-red-600 text-sm font-bold">
+                  {t.home.problemSolution.bulletIcon}
+                </span>
               </div>
               <p className="text-slate-700 leading-relaxed">{point.trim()}</p>
             </div>

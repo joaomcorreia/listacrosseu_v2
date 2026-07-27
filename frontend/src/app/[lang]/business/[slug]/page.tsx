@@ -1,59 +1,23 @@
-import { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
-import { BusinessDetailPageClient } from '@/components/business/BusinessDetailPageClient';
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Layout from "@/components/Layout";
+import TopHeader from "@/components/TopHeader";
+import { BusinessDetailPageClient } from "@/components/business/BusinessDetailPageClient";
+import StructuredData from "@/components/StructuredData";
+import { generateBreadcrumbSchema, generateBusinessSchema } from "@/lib/schema";
+import { generateSEO } from "@/lib/seo";
+import { INTERNAL_BACKEND_URL } from '@/lib/env.server';
+import type { BusinessDetail } from '@/lib/api';
+import { PUBLIC_SITE_URL } from "@/lib/env.public";
 
-interface Business {
-  id: number;
-  name: string;
-  slug: string;
-  tier: 'free' | 'claimed' | 'premium';
-  country?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-  city?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-  town?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-  category?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-  address?: string;
-  address_line1?: string;
-  postal_code?: string;
-  latitude?: number;
-  longitude?: number;
-  website?: string;
-  phone?: string;
-  description?: string;
-  keywords?: string[];
-  logo_url?: string;
-  image_url?: string;
-  premium_content?: string;
-  premium_images?: string[];
-  premium_sidebar?: {
-    sidebar_highlight?: string;
-    services?: string[];
-    contact_email?: string;
-    opening_hours?: string;
-  };
-}
+type Business = BusinessDetail;
 
 async function fetchBusiness(slug: string): Promise<Business | null> {
   try {
-    const baseUrl = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+    const baseUrl = INTERNAL_BACKEND_URL;
     const response = await fetch(`${baseUrl}/api/listings/businesses/${slug}/`, {
       // Enable ISR (Incremental Static Regeneration)
-      next: { revalidate: 3600 } // Revalidate every hour
+      next: { revalidate: 3600 }, // Revalidate every hour
     });
 
     if (!response.ok) {
@@ -65,7 +29,7 @@ async function fetchBusiness(slug: string): Promise<Business | null> {
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching business:', error);
+    console.error("Error fetching business:", error);
     return null;
   }
 }
@@ -76,20 +40,41 @@ export default async function BusinessDetailPage({
   params: Promise<{ lang: string; slug: string }>;
 }) {
   const { lang, slug } = await params;
-  
+
   const business = await fetchBusiness(slug);
-  
+
   if (!business) {
     notFound();
   }
 
-  // Always redirect to the canonical location-first URL
-  if (business.canonical_path) {
-    redirect(business.canonical_path);
+  const baseUrl = PUBLIC_SITE_URL;
+  const breadcrumbs = [
+    { name: "Home", url: `${baseUrl}/${lang}` },
+    { name: "Countries", url: `${baseUrl}/${lang}/countries` },
+  ];
+
+  if (business.country?.name) {
+    breadcrumbs.push({
+      name: business.country.name,
+      url: `${baseUrl}/${lang}/countries/${business.country.slug}`,
+    });
   }
 
-  // This should only render if canonical_path is not available (fallback)
-  return <BusinessDetailPageClient business={business} lang={lang} />;
+  breadcrumbs.push({
+    name: business.name,
+    url: `${baseUrl}/${lang}/business/${business.slug}`,
+  });
+
+  return (
+    <>
+      <StructuredData data={generateBusinessSchema(business, lang)} />
+      <StructuredData data={generateBreadcrumbSchema(breadcrumbs)} />
+      <TopHeader />
+      <Layout withTopHeader>
+        <BusinessDetailPageClient business={business} lang={lang} />
+      </Layout>
+    </>
+  );
 }
 
 export async function generateMetadata({
@@ -102,58 +87,41 @@ export async function generateMetadata({
 
   if (!business) {
     return {
-      title: 'Business Not Found | ListAcrossEU',
+      title: "Business Not Found | ListAcross EU",
     };
   }
 
-  const cityName = business.city?.name || '';
-  const countryName = business.country?.name || '';
-  const categoryName = business.category?.name || 'Business';
-  
-  const title = `${business.name} in ${cityName} | ListAcrossEU`;
-  const description = `${categoryName} in ${cityName}, ${countryName}. Professional services and reliable business information on ListAcrossEU.`;
+  const cityName = business.city?.name || "";
+  const countryName = business.country?.name || "";
+  const categoryName = business.category?.name || "Business";
 
-  // Construct full address for JSON-LD
-  const address = {
-    "@type": "PostalAddress",
-    addressCountry: business.country?.name,
-    addressLocality: business.city?.name,
-    ...(business.address_line1 && { streetAddress: business.address_line1 }),
-    ...(business.postal_code && { postalCode: business.postal_code }),
-  };
+  const titleBase = cityName
+    ? `${business.name} in ${cityName}`
+    : business.name;
+  const description =
+    business.description ||
+    `${categoryName} in ${cityName || countryName}. Professional services and reliable business information on ListAcross EU.`;
 
-  // Generate JSON-LD structured data
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "LocalBusiness",
-    name: business.name,
-    ...(business.category?.name && { 
-      "@type": ["LocalBusiness", business.category.name.includes('Restaurant') ? "Restaurant" : "LocalBusiness"]
-    }),
-    address,
-    ...(business.phone && { telephone: business.phone }),
-    ...(business.website && { url: business.website }),
-    ...(business.description && { description: business.description }),
-    ...(business.latitude && business.longitude && {
-      geo: {
-        "@type": "GeoCoordinates",
-        latitude: business.latitude,
-        longitude: business.longitude,
-      }
-    }),
-  };
+  const canonicalPath =
+    business.canonical_path || `/${lang}/business/${business.slug}`;
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
+  return generateSEO(
+    {
+      title: titleBase,
       description,
-      type: 'website',
-      ...(business.logo_url && { images: [business.logo_url] }),
+      canonical: canonicalPath,
+      ogImage: business.logo_url || business.image_url,
+      keywords: business.keywords?.length
+        ? business.keywords
+        : [
+            "business directory",
+            "local business",
+            "services",
+            "ListAcross EU",
+            countryName,
+          ].filter(Boolean) as string[],
     },
-    other: {
-      'application/ld+json': JSON.stringify(jsonLd),
-    },
-  };
+    lang,
+  );
 }
+

@@ -1,127 +1,107 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { normalizeLang } from '@/lib/lang';
+import { useTranslations } from '@/i18n/translations';
 
-const features = [
+type WhyChooseFeature = {
+  title: string;
+  description: string;
+  badge: string;
+  points: string[];
+};
+
+type WhyChooseSectionProps = {
+  title?: string;
+  subtitle?: string;
+  items?: Array<Partial<WhyChooseFeature>>;
+  settings?: Record<string, unknown>;
+};
+
+const baseFeatures = [
   {
     id: 1,
-    title: 'Verified Business Information',
-    description: 'Every business listing is verified and regularly updated to ensure accuracy and reliability.',
-    badge: '99.2% Accuracy Rate',
     badgeColor: 'bg-green-500',
     borderColor: 'border-green-500',
-    icon: '✓',
+    icon: 'VERIFY',
     iconBg: 'bg-green-500',
-    points: [
-      'Manual verification process',
-      'Regular data updates', 
-      'Contact information validation',
-      'Business status monitoring'
-    ]
   },
   {
     id: 2,
-    title: 'Complete EU Coverage',
-    description: 'Access businesses across all 27 EU member states through one unified platform.',
-    badge: '27 Countries',
     badgeColor: 'bg-blue-500',
     borderColor: 'border-blue-500',
     icon: 'EU',
     iconBg: 'bg-blue-500',
-    points: [
-      'All EU member states',
-      'Multi-language support',
-      'Local business insights',
-      'Cultural adaptability'
-    ]
   },
   {
     id: 3,
-    title: 'Advanced Search & Filters',
-    description: 'Find exactly what you need with sophisticated search tools and smart filtering options.',
-    badge: '50+ Filter Options',
     badgeColor: 'bg-purple-500',
     borderColor: 'border-purple-500',
-    icon: '🔍',
+    icon: 'SEARCH',
     iconBg: 'bg-purple-500',
-    points: [
-      'Location-based search',
-      'Category refinement',
-      'Rating and review filters',
-      'Availability status'
-    ]
   },
   {
     id: 4,
-    title: 'Free Basic Listings',
-    description: 'Get your business discovered across Europe at no cost with our comprehensive free tier.',
-    badge: 'Always Free',
     badgeColor: 'bg-orange-500',
     borderColor: 'border-orange-500',
-    icon: '💰',
+    icon: 'FREE',
     iconBg: 'bg-orange-500',
-    points: [
-      'No setup fees',
-      'Basic business profile',
-      'Contact information display',
-      'Category placement'
-    ]
   },
   {
     id: 5,
-    title: 'Mobile-Optimized Experience',
-    description: 'Seamlessly browse and manage listings on any device with our responsive design.',
-    badge: '98% Mobile Score',
     badgeColor: 'bg-indigo-500',
     borderColor: 'border-indigo-500',
-    icon: '📱',
+    icon: 'MOBILE',
     iconBg: 'bg-indigo-500',
-    points: [
-      'Responsive design',
-      'Touch-friendly interface',
-      'Offline capabilities',
-      'Fast loading times'
-    ]
   },
   {
     id: 6,
-    title: '24/7 Customer Support',
-    description: 'Get help when you need it with our dedicated multilingual support team.',
-    badge: '<2min Response',
     badgeColor: 'bg-pink-500',
     borderColor: 'border-pink-500',
-    icon: '🎧',
+    icon: 'SUPPORT',
     iconBg: 'bg-pink-500',
-    points: [
-      'Multilingual support',
-      'Live chat available',
-      'Email assistance',
-      'Phone support (premium)'
-    ]
-  }
+  },
 ];
 
-export default function WhyChooseSection() {
+export default function WhyChooseSection({ title, subtitle, items }: WhyChooseSectionProps) {
+  const params = useParams();
+  const lang = normalizeLang(String(params?.lang || 'en'));
+  const t = useTranslations(lang);
   const [activeFeature, setActiveFeature] = useState(0);
+  const features = useMemo(() => {
+    const translationFeatures = t.home.whyChoose.features || [];
+    const source = items?.length ? items : translationFeatures;
+    return baseFeatures.map((feature, index) => ({
+      ...feature,
+      title: source[index]?.title || translationFeatures[index]?.title || '',
+      description: source[index]?.description || translationFeatures[index]?.description || '',
+      badge: source[index]?.badge || translationFeatures[index]?.badge || '',
+      points: source[index]?.points || translationFeatures[index]?.points || [],
+    }));
+  }, [items, t]);
 
   useEffect(() => {
+    if (features.length === 0) {
+      return;
+    }
+
     const interval = setInterval(() => {
-      setActiveFeature(prev => (prev + 1) % features.length);
+      setActiveFeature((prev) => (prev + 1) % features.length);
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [features.length]);
 
   return (
     <section className="py-20 bg-gray-50">
       <div className="mx-auto max-w-7xl px-4">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Why Choose ListAcross EU?
+            {title || t.home.whyChoose.title}
           </h2>
           <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-            We're not just another business directory. We're your gateway to European commerce, built by 
-            Europeans for Europeans, with the features that matter most.
+            {subtitle || t.home.whyChoose.subtitle}
           </p>
         </div>
 
@@ -130,38 +110,29 @@ export default function WhyChooseSection() {
             <div
               key={feature.id}
               className={`relative bg-white rounded-2xl p-8 transition-all duration-500 border-2 ${
-                activeFeature === index 
-                  ? `${feature.borderColor} shadow-xl transform scale-105` 
+                activeFeature === index
+                  ? `${feature.borderColor} shadow-xl transform scale-105`
                   : 'border-gray-200 hover:border-gray-300 shadow-md hover:shadow-lg'
               }`}
             >
-              {/* Icon */}
               <div className="absolute top-6 right-6">
-                <div className={`w-12 h-12 ${feature.iconBg} rounded-full flex items-center justify-center text-white font-bold shadow-lg`}>
+                <div
+                  className={`w-12 h-12 ${feature.iconBg} rounded-full flex items-center justify-center text-white font-bold shadow-lg`}
+                >
                   {feature.icon}
                 </div>
               </div>
 
-              {/* Content */}
               <div className="space-y-4">
-                <h3 className="text-xl font-bold text-slate-900 pr-16">
-                  {feature.title}
-                </h3>
-                
-                <p className="text-slate-600 leading-relaxed">
-                  {feature.description}
-                </p>
-
-                {/* Badge */}
+                <h3 className="text-xl font-bold text-slate-900 pr-16">{feature.title}</h3>
+                <p className="text-slate-600 leading-relaxed">{feature.description}</p>
                 <div className="inline-block">
                   <span className={`${feature.badgeColor} text-white px-3 py-1 rounded-full text-sm font-semibold shadow-sm`}>
                     {feature.badge}
                   </span>
                 </div>
-
-                {/* Feature Points */}
                 <ul className="space-y-2 mt-6">
-                  {feature.points.map((point, pointIndex) => (
+                  {feature.points.map((point: string, pointIndex: number) => (
                     <li key={pointIndex} className="flex items-start gap-2 text-sm text-slate-600">
                       <div className={`w-1.5 h-1.5 ${feature.badgeColor} rounded-full mt-2 flex-shrink-0`}></div>
                       <span>{point}</span>
@@ -169,26 +140,24 @@ export default function WhyChooseSection() {
                   ))}
                 </ul>
               </div>
-              
-              {/* Active indicator */}
+
               {activeFeature === index && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 rounded-b-2xl"
-                     style={{ color: feature.borderColor.replace('border-', '') }}></div>
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-30 rounded-b-2xl"
+                  style={{ color: feature.borderColor.replace('border-', '') }}
+                ></div>
               )}
             </div>
           ))}
         </div>
 
-        {/* Progress indicators */}
         <div className="flex justify-center mt-12 space-x-3">
-          {features.map((_, index) => (
+          {features.map((feature, index) => (
             <button
-              key={index}
+              key={feature.id}
               onClick={() => setActiveFeature(index)}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                activeFeature === index 
-                  ? features[index].badgeColor.replace('bg-', 'bg-') + ' shadow-lg' 
-                  : 'bg-gray-300 hover:bg-gray-400'
+                activeFeature === index ? `${feature.badgeColor} shadow-lg` : 'bg-gray-300 hover:bg-gray-400'
               }`}
             />
           ))}

@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { normalizeLang } from "@/lib/lang";
+import { translations, useTranslations } from "@/i18n/translations";
 import {
   fetchCategories,
   fetchBusinesses,
   type Category,
   type BusinessSearchResult,
 } from "@/lib/api/listings";
-import BusinessList from "@/components/BusinessList";
+import BusinessCard from "@/components/BusinessCard";
+import InfoBoxes from "@/components/InfoBoxes";
+import { getInfoBoxes } from "@/content/infoboxes";
+import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 
 interface CategoryDetailClientProps {
   categorySlug: string;
@@ -17,6 +20,9 @@ interface CategoryDetailClientProps {
 }
 
 export default function CategoryDetailClient({ categorySlug, lang }: CategoryDetailClientProps) {
+  const t = useTranslations(lang);
+  const directory = t.directory ?? translations.en.directory;
+  const categoriesText = directory.categories ?? translations.en.directory.categories;
   const [category, setCategory] = useState<Category | null>(null);
   const [businesses, setBusinesses] = useState<BusinessSearchResult | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
@@ -26,6 +32,12 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
   const [hasMore, setHasMore] = useState(true);
 
   const limit = 24;
+  const format = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [key, value]) =>
+        result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
+      template,
+    );
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +79,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError("Failed to load category data. Please try again.");
+          setError(categoriesText.errorLoad);
         }
       } finally {
         if (!cancelled) {
@@ -80,13 +92,22 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
     return () => {
       cancelled = true;
     };
-  }, [categorySlug, page]);
+  }, [categorySlug, page, lang]);
 
   const loadMore = () => {
     if (!loading && hasMore) {
       setPage(prev => prev + 1);
     }
   };
+
+  const tierOrder: Record<string, number> = { premium: 0, claimed: 1, free: 2 };
+  const sortedBusinesses = businesses
+    ? [...businesses.results].sort(
+        (a: any, b: any) =>
+          (tierOrder[a.tier ?? "free"] ?? 2) - (tierOrder[b.tier ?? "free"] ?? 2)
+      )
+    : [];
+  const infoBoxes = getInfoBoxes(lang, categorySlug);
 
   if (loading && page === 0) {
     return (
@@ -128,7 +149,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
           <div className="mx-auto max-w-6xl px-4 py-20">
             <div className="text-center text-white">
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                Error Loading Category
+                {categoriesText.errorTitle}
               </h1>
               <p className="mt-6 text-xl leading-8 text-red-100">
                 {error}
@@ -147,17 +168,17 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
           <div className="mx-auto max-w-6xl px-4 py-20">
             <div className="text-center text-white">
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                Category Not Found
+                {categoriesText.notFoundTitle}
               </h1>
               <p className="mt-6 text-xl leading-8 text-slate-100">
-                The category "{categorySlug}" does not exist or has no businesses.
+                {format(categoriesText.notFoundBody, { category: categorySlug })}
               </p>
               <div className="mt-8">
                 <Link
                   href={`/${lang}/categories`}
                   className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-100 transition-colors"
                 >
-                  ← Back to Categories
+                  {categoriesText.backToCategories}
                 </Link>
               </div>
             </div>
@@ -178,8 +199,11 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
             </h1>
             <p className="mt-6 text-xl leading-8 text-purple-100">
               {businesses?.total ? 
-                `${businesses.total.toLocaleString()} businesses in ${category.name}` :
-                `Businesses in ${category.name}`
+                format(categoriesText.heroCount, {
+                  count: businesses.total.toLocaleString(),
+                  category: category.name,
+                }) :
+                format(categoriesText.heroTitle, { category: category.name })
               }
             </p>
             <div className="mt-8">
@@ -187,7 +211,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
                 href={`/${lang}/categories`}
                 className="inline-flex items-center gap-2 rounded-md bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400 transition-colors"
               >
-                ← All Categories
+                {categoriesText.allCategories}
               </Link>
             </div>
           </div>
@@ -200,18 +224,36 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
           <div className="lg:grid lg:grid-cols-4 lg:gap-8">
             {/* Main content area */}
             <div className="lg:col-span-3">
+              {infoBoxes && (
+                <div className="mb-10">
+                  <InfoBoxes
+                    title={`About ${category.name} in the EU`}
+                    subtitle={infoBoxes.subtitle}
+                    items={infoBoxes.items}
+                  />
+                </div>
+              )}
               {businesses && businesses.results.length > 0 ? (
                 <div>
                   <div className="flex items-center justify-between mb-8">
                     <h2 className="text-2xl font-bold text-slate-900">
-                      {category.name} Businesses
+                      {format(categoriesText.resultsTitle, { category: category.name })}
                     </h2>
                     <span className="text-sm text-slate-600">
-                      {businesses.total.toLocaleString()} total
+                      {format(categoriesText.totalLabel, { count: businesses.total.toLocaleString() })}
                     </span>
                   </div>
                   
-                  <BusinessList businesses={businesses.results} />
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    {sortedBusinesses.map((business) => (
+                      <div
+                        key={business.id}
+                        className={business.tier === "premium" ? "col-span-2" : ""}
+                      >
+                        <BusinessCard business={business as any} lang={lang} />
+                      </div>
+                    ))}
+                  </div>
                   
                   {/* Load More Button */}
                   {hasMore && (
@@ -221,7 +263,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
                         disabled={loading}
                         className="inline-flex items-center gap-2 rounded-md bg-purple-600 px-6 py-3 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {loading ? 'Loading...' : 'Load More Businesses'}
+                        {loading ? categoriesText.loading : categoriesText.loadMore}
                       </button>
                     </div>
                   )}
@@ -234,10 +276,10 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
                     </svg>
                   </div>
                   <h3 className="mt-4 text-lg font-medium text-slate-900">
-                    No businesses found
+                    {categoriesText.noBusinessesTitle}
                   </h3>
                   <p className="mt-2 text-slate-600">
-                    No businesses are listed in this category yet.
+                    {categoriesText.noBusinessesBody}
                   </p>
                 </div>
               )}
@@ -248,7 +290,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
               <div className="sticky top-8 space-y-6">
                 <div className="rounded-lg bg-white p-6 shadow-sm">
                   <h3 className="text-lg font-medium text-slate-900 mb-4">
-                    Other Categories
+                    {categoriesText.otherCategories}
                   </h3>
                   <div className="space-y-2">
                     {allCategories
@@ -275,7 +317,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
                         href={`/${lang}/categories`}
                         className="text-sm font-medium text-purple-600 hover:text-purple-800 transition-colors"
                       >
-                        View all categories →
+                        {categoriesText.viewAllCategories}
                       </Link>
                     </div>
                   )}
@@ -283,16 +325,16 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
 
                 <div className="rounded-lg bg-white p-6 shadow-sm">
                   <h3 className="text-lg font-medium text-slate-900 mb-4">
-                    Search Businesses
+                    {categoriesText.searchBusinessesTitle}
                   </h3>
                   <p className="text-sm text-slate-600 mb-4">
-                    Looking for something specific?
+                    {categoriesText.searchBusinessesBody}
                   </p>
                   <Link
                     href={`/${lang}/search?category=${categorySlug}`}
                     className="inline-flex items-center gap-2 rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors w-full justify-center"
                   >
-                    Advanced Search
+                    {categoriesText.advancedSearch}
                     <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                     </svg>
@@ -303,6 +345,8 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
           </div>
         </div>
       </section>
+
+      <BlogPostsSlider lang={lang} mode="eu" />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import BusinessCard from '@/components/BusinessCard';
 import ClaimBusinessModal from '@/components/ClaimBusinessModal';
 import { useModal } from '@/hooks/useModal';
 import { fetchBusinessesByTier, fetchSectionBusinessPicks, Business } from '@/lib/api/listings';
+import { useTranslations } from '@/i18n/translations';
+import { debugLog, debugWarn } from '@/lib/debug';
 
 interface SectionSettings {
   source?: 'manual' | 'auto';
@@ -24,11 +26,19 @@ interface Section {
 
 interface ListingsTierSectionProps {
   section: Section;
-  tier: 'claimed' | 'premium';
+  tier: 'claimed' | 'premium' | 'free';
   lang?: string;
 }
 
 export default function ListingsTierSection({ section, tier, lang = 'en' }: ListingsTierSectionProps) {
+  const t = useTranslations(lang);
+  const formatText = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [key, value]) =>
+        result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
+      template,
+    );
+
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +69,7 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
         
         // Ensure we have an array and limit results
         if (!Array.isArray(businessList)) {
-          console.warn(`${tier} section: Expected array, got:`, typeof businessList);
+          debugWarn(`${tier} section: Expected array, got:`, typeof businessList);
           businessList = [];
         }
         
@@ -67,16 +77,15 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
         
         // Dev logging for debugging
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[DEV] ${tier} section loaded: ${businessList.length} businesses (source: ${source})`);
+          debugLog(`[DEV] ${tier} section loaded: ${businessList.length} businesses (source: ${source})`);
         }
       } catch (err) {
         console.error(`Error fetching ${tier} listings:`, err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load businesses';
-        setError(errorMessage);
+        setError(formatText(t.home.listingsTier.errorBody, { tier }));
         
         // For development, provide more detailed error info
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[DEV] ${tier} section error details:`, {
+          debugLog(`[DEV] ${tier} section error details:`, {
             error: err,
             sectionId: section.id,
             settings: section.settings,
@@ -90,7 +99,14 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
     }
 
     fetchBusinesses();
-  }, [section, tier]);
+  }, [section, tier, t]);
+
+  const gridClasses =
+    tier === "premium"
+      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      : tier === "claimed"
+        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+        : "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4";
 
   if (loading) {
     return (
@@ -106,7 +122,7 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
               {section.subtitle}
             </p>
           )}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className={gridClasses}>
             {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-gray-100 animate-pulse rounded-lg h-64"></div>
             ))}
@@ -127,7 +143,7 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
           )}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-yellow-800">
-              Unable to load {tier} businesses at this time. Please try again later.
+              {formatText(t.home.listingsTier.errorBody, { tier })}
             </p>
             <p className="text-sm text-yellow-600 mt-1">{error}</p>
           </div>
@@ -147,26 +163,16 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
           )}
           <div className="text-center py-12">
             <p className="text-gray-600">
-              No {tier} businesses have been selected for this section yet.
+              {formatText(t.home.listingsTier.emptyTitle, { tier })}
             </p>
             <p className="text-sm text-gray-500 mt-1">
-              Configure this section in the admin panel to select businesses.
+              {t.home.listingsTier.emptyHint}
             </p>
           </div>
         </div>
       </section>
     );
   }
-
-  // Use grid layout for tier-specific sections (claimed/premium)
-  const settings = section.settings || {};
-  const columns = settings.columns || 3;
-  
-  const gridClass = `grid gap-6 ${
-    columns === 2 ? 'sm:grid-cols-2' : 
-    columns === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' :
-    'sm:grid-cols-2 lg:grid-cols-3' // default 3 columns
-  }`;
 
   return (
     <section className="py-8 md:py-12">
@@ -182,11 +188,11 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
           </p>
         )}
         
-        {/* Grid layout for tier sections - consistent heights */}
-        <div className={gridClass}>
+        {/* Tier-specific grid layout */}
+        <div className={gridClasses}>
           {businesses.map((business) => (
             <BusinessCard 
-              key={business.id} 
+              key={business.id}
               business={business as any} 
               lang={lang}
               onClaim={() => {
@@ -201,11 +207,8 @@ export default function ListingsTierSection({ section, tier, lang = 'en' }: List
         isOpen={claimModal.isOpen} 
         onClose={claimModal.closeModal}
         business={(selectedBusiness as any) || undefined}
-        onSubmit={async (data) => {
-          console.log('Demo claim submission:', data);
-          alert(`Demo: Claim submitted for ${data.business_name}! In production, this would process the claim request.`);
-        }}
       />
     </section>
   );
 }
+

@@ -18,7 +18,7 @@ async function resolveBusiness(segments: string[], lang: string) {
   }
 
   // Exclude known static routes from business resolution
-  const staticRoutes = ['admin', 'blog', 'business', 'businesses', 'categories', 'cities', 'countries', 'list-your-business', 'locations', 'search', 'towns'];
+  const staticRoutes = ['admin', 'blog', 'business', 'businesses', 'categories', 'cities', 'countries', 'list-your-business', 'locations', 'places', 'search', 'towns'];
   if (staticRoutes.includes(segments[0])) {
     return null;
   }

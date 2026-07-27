@@ -1,5 +1,6 @@
 import HomeHero from '@/components/HomeHero';
 import Link from 'next/link';
+import { debugLog } from '@/lib/debug';
 
 interface Section {
   id: number;
@@ -25,34 +26,28 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ section, lang, breadcrumbs }: HeroSectionProps) {
-  console.log('🎯 HeroSection rendering:', { 
-    sectionKey: section.key, 
+  debugLog('HeroSection rendering:', {
+    sectionKey: section.key,
     useHomeHero: section.settings?.useHomeHero,
     sectionId: section.id,
-    component: 'src/components/sections/HeroSection.tsx'
+    component: 'src/components/sections/HeroSection.tsx',
   });
-  
+
   // If this is the home page hero (based on section key), use the HomeHero component
   if (section.key === 'home_hero' || section.key === 'hero_main' || section.settings?.useHomeHero) {
-    console.log('✅ Using HomeHero component for section:', section.key);
+    debugLog('Using HomeHero component for section:', section.key);
     return (
       <div>
-        <span className="fixed top-20 right-4 z-50 bg-yellow-400 text-black px-2 py-1 text-xs">
-          HERO-DEBUG-B (HeroSection→HomeHero)
-        </span>
         <HomeHero />
       </div>
     );
   }
 
-  console.log('⚠️ Using CMS hero for section:', section.key);
-  
+  debugLog('Using CMS hero for section:', section.key);
+
   // Otherwise, render a CMS-driven hero section
   return (
     <div>
-      <span className="fixed top-20 right-20 z-50 bg-orange-400 text-black px-2 py-1 text-xs">
-        HERO-DEBUG-C (HeroSection→CMS)
-      </span>
       <section className="relative isolate overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white">
         <div className="mx-auto max-w-6xl px-4 py-20">
           <div className="max-w-3xl">
@@ -69,7 +64,7 @@ export function HeroSection({ section, lang, breadcrumbs }: HeroSectionProps) {
                 {section.body}
               </p>
             )}
-            
+
             {/* CTA Buttons */}
             {(section.cta_label || section.cta_secondary_label) && (
               <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -92,7 +87,7 @@ export function HeroSection({ section, lang, breadcrumbs }: HeroSectionProps) {
               </div>
             )}
           </div>
-          
+
           {/* Breadcrumbs at bottom of hero */}
           {breadcrumbs && (
             <div className="mt-16 pt-6 border-t border-blue-500/30">
@@ -106,3 +101,5 @@ export function HeroSection({ section, lang, breadcrumbs }: HeroSectionProps) {
     </div>
   );
 }
+
+

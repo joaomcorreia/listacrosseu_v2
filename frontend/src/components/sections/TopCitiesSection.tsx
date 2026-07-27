@@ -25,13 +25,15 @@ interface TopCitiesSectionProps {
 
 export function TopCitiesSection({ section, lang = 'en' }: TopCitiesSectionProps) {
   return (
-    <section className="py-16 bg-white">
+    <section className="py-16 bg-slate-50">
       <Container>
         <TopCities lang={lang} />
         
         {/* Inline Ad Placement */}
-        <div className="flex justify-center mt-16">
-          <AdPlaceholder variant="banner" />
+        <div className="mt-16">
+          <div className="mx-auto max-w-4xl px-4">
+            <AdPlaceholder variant="banner" />
+          </div>
         </div>
       </Container>
     </section>

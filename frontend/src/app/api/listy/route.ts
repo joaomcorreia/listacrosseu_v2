@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { debugWarn } from "@/lib/debug";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       try {
         reply = await forwardToAI(body);
       } catch (error) {
-        console.warn("AI backend failed, using fallback:", error);
+        debugWarn("AI backend failed, using fallback:", error);
         reply = getFallbackResponse(body.message);
       }
     } else {
@@ -138,3 +139,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

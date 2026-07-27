@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils.text import slugify
 
 
@@ -139,13 +141,96 @@ class BlogPostTranslation(models.Model):
 
     class Meta:
         unique_together = ("post", "language")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language", "slug"],
+                name="unique_blogposttranslation_language_slug",
+            )
+        ]
         verbose_name = "Blog post translation"
         verbose_name_plural = "Blog post translations"
 
     def save(self, *args, **kwargs):
+        if not self.slug and self.language == "en":
+            self.slug = slugify(self.title) if self.title else ""
         if not self.slug:
-            self.slug = slugify(self.title)
+            self.slug = slugify(self.title) if self.title else self.post.slug
+        if self.slug:
+            base_slug = self.slug
+            counter = 1
+            while BlogPostTranslation.objects.filter(
+                language=self.language,
+                slug=self.slug,
+            ).exclude(pk=self.pk).exists():
+                counter += 1
+                self.slug = f"{base_slug}-{counter}"
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.title} [{self.language}]"
+
+
+def _all_language_codes():
+    return [code for code, _ in LANG_CHOICES]
+
+
+@receiver(post_save, sender=BlogCategory)
+def create_category_translations(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    en_translation = instance.translations.filter(language="en").first()
+    base_name = en_translation.name if en_translation else instance.key
+    base_description = en_translation.description if en_translation else ""
+
+    for code in _all_language_codes():
+        BlogCategoryTranslation.objects.get_or_create(
+            category=instance,
+            language=code,
+            defaults={
+                "name": base_name,
+                "description": base_description,
+                "slug": slugify(base_name) if base_name else instance.key,
+            },
+        )
+
+
+@receiver(post_save, sender=BlogPost)
+def create_post_translations(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    en_translation, _ = BlogPostTranslation.objects.get_or_create(
+        post=instance,
+        language="en",
+        defaults={
+            "title": instance.slug,
+            "excerpt": "",
+            "body": instance.slug,
+            "seo_title": instance.slug,
+            "seo_description": instance.slug,
+            "slug": slugify(instance.slug) if instance.slug else instance.slug,
+            "is_published": True,
+        },
+    )
+
+    base_title = en_translation.title or instance.slug
+    base_excerpt = en_translation.excerpt or ""
+    base_body = en_translation.body or ""
+    base_seo_title = en_translation.seo_title or base_title
+    base_seo_description = en_translation.seo_description or base_excerpt or base_body[:155]
+
+    for code in _all_language_codes():
+        BlogPostTranslation.objects.get_or_create(
+            post=instance,
+            language=code,
+            defaults={
+                "title": base_title,
+                "excerpt": base_excerpt,
+                "body": base_body,
+                "seo_title": base_seo_title,
+                "seo_description": base_seo_description,
+                "slug": slugify(base_title) if base_title else instance.slug,
+                "is_published": True,
+            },
+        )

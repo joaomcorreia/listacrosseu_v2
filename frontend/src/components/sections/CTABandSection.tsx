@@ -18,6 +18,7 @@ interface Section {
 
 interface CTABandSectionProps {
   section: Section;
+  lang?: string;
 }
 
 export function CTABandSection({ section }: CTABandSectionProps) {

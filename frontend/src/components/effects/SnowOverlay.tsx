@@ -22,7 +22,7 @@ export default function SnowOverlay() {
         id: i,
         left: Math.random() * 100,
         animationDuration: Math.random() * 3 + 2, // 2-5 seconds
-        opacity: Math.random() * 0.3 + 0.4, // 0.4-0.7 for subtlety
+        opacity: Math.random() * 0.3 + 0.7, // 0.4-0.7 for subtlety
         size: Math.random() * 3 + 2, // 2-5px
         delay: Math.random() * 2, // 0-2s delay
       });

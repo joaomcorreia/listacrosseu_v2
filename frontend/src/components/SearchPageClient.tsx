@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { normalizeLang } from "@/lib/lang";
+import { useTranslations } from "@/i18n/translations";
 import {
   fetchBusinesses,
   fetchCountries,
@@ -20,7 +21,6 @@ import {
   type UiTextResponse,
 } from "@/lib/api";
 import SnowBackground from "@/components/SnowBackground";
-import Sidebar from "@/components/Sidebar";
 
 type Option = { label: string; value: string };
 
@@ -37,6 +37,7 @@ export default function SearchPageClient() {
   const pathname = usePathname();
   const searchParamsUrl = useSearchParams();
   const lang = normalizeLang(String(params?.lang || "en"));
+  const t = useTranslations(lang);
 
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("");
@@ -88,7 +89,7 @@ export default function SearchPageClient() {
         setUiText(textData);
       } catch (err) {
         console.error(err);
-        if (!cancelled) setError("Failed to load filters");
+        if (!cancelled) setError(t.forms.search.messages.filterLoadFailed);
       }
     }
 
@@ -117,7 +118,7 @@ export default function SearchPageClient() {
       setOffset(response.offset);
     } catch (err) {
       console.error(err);
-      setError("Search failed. Please try again.");
+      setError(t.forms.search.messages.failed);
     } finally {
       setLoading(false);
     }
@@ -137,17 +138,17 @@ export default function SearchPageClient() {
       <section className="relative isolate -mt-16 pt-16 bg-gradient-to-r from-[#0a3cff] to-[#0041b8] text-white">
         <div className="mx-auto max-w-6xl px-4 py-10">
           <h1 className="text-2xl font-semibold">
-            {uiText.data["search_title"] || "Explore European businesses"}
+            {uiText.data["search_title"] || t.forms.search.title}
           </h1>
           <p className="mt-1 text-sm text-blue-100">
-            {uiText.data["search_subtitle"] || "Use the filters below to discover local and micro businesses. Start with a country or city, then refine by category."}
+            {uiText.data["search_subtitle"] || t.forms.search.subtitle}
           </p>
         </div>
       </section>
 
-      {/* Main content + sidebar */}
-      <div className="mx-auto flex max-w-6xl gap-6 px-4 py-8">
-        <div className="flex-1">
+      {/* Main content */}
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <div>
   
         <form
           onSubmit={handleSubmit}
@@ -155,27 +156,27 @@ export default function SearchPageClient() {
         >
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Search
+              {t.forms.search.labels.search}
             </label>
             <input
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Name, description, address..."
+              placeholder={t.forms.search.placeholders.search}
               className="w-full rounded-md border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-400"
             />
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Country
+              {t.forms.search.labels.country}
             </label>
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               className="w-full rounded-md border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-400"
             >
-              <option value="">All countries</option>
+              <option value="">{t.forms.search.options.allCountries}</option>
               {countries.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -186,14 +187,14 @@ export default function SearchPageClient() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Category
+              {t.forms.search.labels.category}
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-md border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-400"
             >
-              <option value="">All categories</option>
+              <option value="">{t.forms.search.options.allCategories}</option>
               {categories.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -204,14 +205,14 @@ export default function SearchPageClient() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              City
+              {t.forms.search.labels.city}
             </label>
             <select
               value={city}
               onChange={(e) => setCity(e.target.value)}
               className="w-full rounded-md border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-400"
             >
-              <option value="">All cities</option>
+              <option value="">{t.forms.search.options.allCities}</option>
               {(() => {
                 // Deduplicate cities to prevent duplicate React keys
                 // Create country-safe unique keys for future scalability
@@ -260,7 +261,7 @@ export default function SearchPageClient() {
               htmlFor="micro"
               className="text-sm font-medium text-slate-700"
             >
-              Micro businesses only
+              {t.forms.search.labels.microOnly}
             </label>
           </div>
 
@@ -269,7 +270,7 @@ export default function SearchPageClient() {
               type="submit"
               className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
-              {loading ? "Searching..." : "Search"}
+              {loading ? t.forms.search.buttons.searching : t.forms.search.buttons.search}
             </button>
           </div>
         </form>
@@ -283,22 +284,32 @@ export default function SearchPageClient() {
         {/* Results summary */}
         {total > 0 && (
           <div className="mb-4 text-xs text-slate-500">
-            Showing {businesses.length} of {total} businesses
+            {t.forms.search.messages.resultsSummary
+              .replace("{shown}", String(businesses.length))
+              .replace("{total}", String(total))}
           </div>
         )}
 
         {/* Development debug info */}
         {process.env.NODE_ENV === 'development' && (
           <div className="mb-4 text-xs bg-yellow-50 border border-yellow-200 p-2 rounded">
-            <strong>🐛 Debug:</strong> {total} results | Filters: country="{country}" city="{city}" category="{category}" q="{q}" | 
-            Available: {countries.length} countries, {cities.length} cities, {categories.length} categories
+            <strong>{t.forms.search.messages.debugLabel}:</strong>{" "}
+            {t.forms.search.messages.debugSummary
+              .replace("{total}", String(total))
+              .replace("{country}", country || "-")
+              .replace("{city}", city || "-")
+              .replace("{category}", category || "-")
+              .replace("{query}", q || "-")
+              .replace("{countries}", String(countries.length))
+              .replace("{cities}", String(cities.length))
+              .replace("{categories}", String(categories.length))}
           </div>
         )}
 
         {/* Loading state */}
         {loading && businesses.length === 0 && (
           <div className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-500">
-            Looking for businesses…
+            {t.forms.search.messages.loading}
           </div>
         )}
 
@@ -334,7 +345,7 @@ export default function SearchPageClient() {
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {b.is_micro && (
                         <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                          ⭐ Micro / one-person business
+                          {t.businessCard.microBadge}
                         </span>
                       )}
 
@@ -358,7 +369,7 @@ export default function SearchPageClient() {
 
                     {b.address && (
                       <div className="mt-2 text-xs text-slate-500">
-                        📍 {b.address}
+                        {t.businessCard.address}: {b.address}
                       </div>
                     )}
                   </div>
@@ -371,7 +382,7 @@ export default function SearchPageClient() {
                         rel="noreferrer"
                         className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition-colors"
                       >
-                        🌐 Visit website
+                        {t.buttons.visitWebsite}
                       </a>
                     )}
 
@@ -379,7 +390,7 @@ export default function SearchPageClient() {
                       href={detailHref}
                       className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-slate-800 transition-colors"
                     >
-                      View details →
+                      {t.buttons.viewDetails}
                     </Link>
                   </div>
                 </div>
@@ -389,12 +400,12 @@ export default function SearchPageClient() {
 
           {!loading && businesses.length === 0 && !error && (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-              <div className="text-4xl mb-4">🔍</div>
+              <div className="text-4xl mb-4">{t.forms.search.messages.noResultsIcon}</div>
               <div className="text-sm text-slate-500">
-                No businesses found with these filters.
+                {t.forms.search.messages.noResults}
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                Try a different country, city, or category.
+                {t.forms.search.messages.noResultsHint}
               </div>
             </div>
           )}
@@ -411,11 +422,12 @@ export default function SearchPageClient() {
                 : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
             }`}
           >
-            Previous
+            {t.forms.search.pagination.previous}
           </button>
           <div className="text-xs text-slate-500">
-            Page {Math.floor(offset / limit) + 1} of{" "}
-            {total === 0 ? 1 : Math.ceil(total / limit)}
+            {t.forms.search.messages.pageSummary
+              .replace("{page}", String(Math.floor(offset / limit) + 1))
+              .replace("{total}", String(total === 0 ? 1 : Math.ceil(total / limit)))}
           </div>
           <button
             type="button"
@@ -427,14 +439,9 @@ export default function SearchPageClient() {
                 : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
             }`}
           >
-            Next
+            {t.forms.search.pagination.next}
           </button>
         </div>
-        </div>
-
-        {/* Sidebar column */}
-        <div className="w-full shrink-0 md:w-64">
-          <Sidebar slot="blog_sidebar" />
         </div>
       </div>
     </div>

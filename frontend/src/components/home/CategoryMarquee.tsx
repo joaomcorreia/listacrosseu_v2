@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { fetchCategories, type Category } from '@/lib/api/listings';
+import { useTranslations } from '@/i18n/translations';
+import { debugWarn } from '@/lib/debug';
 
 interface CategoryMarqueeProps {
   lang: string;
 }
 
 const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
+  const t = useTranslations(lang);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -20,7 +22,7 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
         const data = await fetchCategories();
         setCategories(data.length > 0 ? data : getFallbackCategories());
       } catch (error) {
-        console.warn('Failed to load categories, using fallback:', error);
+        debugWarn('Failed to load categories, using fallback:', error);
         setCategories(getFallbackCategories());
       } finally {
         setLoading(false);
@@ -31,54 +33,94 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
   }, [lang]);
 
   // Fallback categories if API fails
-  const getFallbackCategories = (): Category[] => [
-    { id: 1, name: 'Restaurants', slug: 'restaurants', business_count: 1250 },
-    { id: 2, name: 'Hotels & Travel', slug: 'hotels-travel', business_count: 980 },
-    { id: 3, name: 'Health & Medical', slug: 'health-medical', business_count: 850 },
-    { id: 4, name: 'Shopping & Retail', slug: 'shopping-retail', business_count: 720 },
-    { id: 5, name: 'Professional Services', slug: 'professional-services', business_count: 650 },
-    { id: 6, name: 'Automotive', slug: 'automotive', business_count: 480 },
-    { id: 7, name: 'Beauty & Wellness', slug: 'beauty-wellness', business_count: 420 },
-    { id: 8, name: 'Education', slug: 'education', business_count: 380 }
-  ];
+  const getFallbackCategories = (): Category[] =>
+    t.home.categoryMarquee.fallbackCategories.map((item, index) => ({
+      id: index + 1,
+      name: item.name,
+      slug: item.slug,
+      business_count: item.businessCount,
+    }));
 
-  // Check for reduced motion preference
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setIsPaused(true);
-    }
-  }, []);
+  const featuredCategories = useMemo(() => {
+    const sorted = [...categories]
+      .filter((category) => category.slug !== 'uncategorized' && category.name !== 'Uncategorized')
+      .sort((a, b) => (b.business_count || 0) - (a.business_count || 0));
+    return sorted.slice(0, 6);
+  }, [categories]);
 
-  // Create duplicated array for infinite effect
-  const duplicatedCategories = [...categories, ...categories];
+  const categoryThemes: Record<string, { gradient: string; icon: string; tags: string[] }> = {
+    restaurants: {
+      gradient: 'from-orange-200 via-rose-100 to-red-200',
+      icon: t.home.categoryMarquee.icons.restaurants,
+      tags: t.home.categoryMarquee.tags.restaurants,
+    },
+    automotive: {
+      gradient: 'from-slate-200 via-blue-100 to-slate-300',
+      icon: t.home.categoryMarquee.icons.automotive,
+      tags: t.home.categoryMarquee.tags.automotive,
+    },
+    'shopping-retail': {
+      gradient: 'from-fuchsia-200 via-pink-100 to-purple-200',
+      icon: t.home.categoryMarquee.icons.shoppingRetail,
+      tags: t.home.categoryMarquee.tags.shoppingRetail,
+    },
+    'health-medical': {
+      gradient: 'from-emerald-200 via-teal-100 to-sky-200',
+      icon: t.home.categoryMarquee.icons.healthMedical,
+      tags: t.home.categoryMarquee.tags.healthMedical,
+    },
+    'professional-services': {
+      gradient: 'from-amber-200 via-yellow-100 to-orange-200',
+      icon: t.home.categoryMarquee.icons.professionalServices,
+      tags: t.home.categoryMarquee.tags.professionalServices,
+    },
+    'beauty-wellness': {
+      gradient: 'from-pink-200 via-rose-100 to-purple-200',
+      icon: t.home.categoryMarquee.icons.beautyWellness,
+      tags: t.home.categoryMarquee.tags.beautyWellness,
+    },
+  };
 
-  const CategoryCard: React.FC<{ category: Category }> = ({ category }) => (
-    <div className="flex-shrink-0 bg-white rounded-lg shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow duration-200 mx-2 relative overflow-hidden min-w-[200px]">
-      {/* Shape decoration instead of image */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-2 right-2 w-6 h-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full blur-sm opacity-60" />
-        <div className="absolute bottom-2 left-2 w-4 h-4 bg-gradient-to-br from-emerald-100 to-blue-100 rounded-full blur-sm opacity-50" />
-      </div>
-      
-      <div className="relative z-10">
-        {/* Icon placeholder */}
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mb-3">
-          <div className="w-4 h-4 bg-white rounded-sm opacity-90" />
-        </div>
-        
-        <h3 className="font-medium text-slate-900 mb-1 text-sm">
-          {category.name}
-        </h3>
-        
-        {category.business_count && (
-          <p className="text-xs text-slate-600">
-            {category.business_count.toLocaleString()} businesses
+  const fallbackTheme = {
+    gradient: 'from-blue-200 via-slate-100 to-indigo-200',
+    icon: t.home.categoryMarquee.icons.fallback,
+    tags: t.home.categoryMarquee.tags.fallback,
+  };
+  const CategoryCard: React.FC<{ category: Category }> = ({ category }) => {
+    const count = category.business_count || 0;
+    const theme = categoryThemes[category.slug] || fallbackTheme;
+
+    return (
+      <Link
+        href={`/${lang}/categories/${category.slug}`}
+        className={`group relative overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br ${theme.gradient} p-8 min-h-[128px] shadow-lg transition-all duration-200 hover:-translate-y-2 hover:rotate-1 hover:shadow-2xl hover:ring-2 hover:ring-white/60`}
+      >
+        <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.6),_transparent_60%)]" />
+        <div className="absolute -bottom-10 -right-6 h-32 w-32 rounded-full bg-white/40 blur-2xl" />
+
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="text-4xl">{theme.icon}</div>
+          <h3 className="mt-4 text-2xl font-bold text-slate-900">
+            {category.name}
+          </h3>
+          <p className="mt-2 text-lg text-slate-600">
+            {count.toLocaleString()} {t.home.categoryMarquee.businessesLabel}
           </p>
-        )}
-      </div>
-    </div>
-  );
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {theme.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </Link>
+    );
+  };
 
   if (loading) {
     return (
@@ -93,44 +135,13 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
   }
 
   return (
-    <div className="relative overflow-hidden">
-      <div 
-        ref={containerRef}
-        className="flex gap-0"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => {
-          // Only resume if user doesn't prefer reduced motion
-          const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          if (!prefersReducedMotion) {
-            setIsPaused(false);
-          }
-        }}
-        style={{
-          animation: isPaused ? 'none' : 'marquee 60s linear infinite',
-        }}
-      >
-        {duplicatedCategories.map((category, index) => (
-          <CategoryCard key={`${category.id}-${index}`} category={category} />
-        ))}
-      </div>
-      
-      {/* CSS Animation */}
-      <style jsx>{`
-        @keyframes marquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
-      
-      {/* Gradient overlays for smooth fade effect */}
-      <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none z-10" />
-      <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none z-10" />
+    <div className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      {featuredCategories.map((category) => (
+        <CategoryCard key={category.id} category={category} />
+      ))}
     </div>
   );
 };
 
 export default CategoryMarquee;
+

@@ -1,6 +1,7 @@
 import Container from '@/components/Container';
 import CategoryMarquee from '@/components/home/CategoryMarquee';
 import AdPlaceholder from '@/components/ads/AdPlaceholder';
+import { useTranslations } from '@/i18n/translations';
 
 interface Section {
   id: number;
@@ -24,15 +25,16 @@ interface CategoryGridSectionProps {
 }
 
 export function CategoryGridSection({ section, lang = 'en' }: CategoryGridSectionProps) {
+  const t = useTranslations(lang);
   return (
-    <section className="py-16 bg-slate-50">
+    <section className="py-20 bg-slate-50">
       <Container>
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-slate-900 mb-4">
-            {section.title || 'Explore Business Categories'}
+            {section.title || t.home.categoryGrid.title}
           </h2>
           <p className="text-xl text-slate-600">
-            {section.subtitle || 'Discover businesses across all sectors'}
+            {section.subtitle || t.home.categoryGrid.subtitle}
           </p>
         </div>
         
@@ -40,8 +42,10 @@ export function CategoryGridSection({ section, lang = 'en' }: CategoryGridSectio
         <CategoryMarquee lang={lang} />
         
         {/* Inline Ad Placement */}
-        <div className="flex justify-center mt-12">
-          <AdPlaceholder variant="inline" />
+        <div className="mt-12">
+          <div className="mx-auto max-w-4xl px-4">
+            <AdPlaceholder variant="banner" />
+          </div>
         </div>
       </Container>
     </section>

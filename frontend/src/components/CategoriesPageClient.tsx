@@ -10,12 +10,14 @@ import {
   type Category,
   type BusinessSearchResult,
 } from "@/lib/api/listings";
-import BusinessList from "@/components/BusinessList";
+import BusinessCard from "@/components/BusinessCard";
+import { useTranslations } from "@/i18n/translations";
 
 export default function CategoriesPageClient() {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || "en"));
-  
+  const t = useTranslations(lang);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [recentBusinesses, setRecentBusinesses] = useState<BusinessSearchResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,7 @@ export default function CategoriesPageClient() {
 
         const [categoriesData, businessesData] = await Promise.all([
           fetchCategories(),
-          fetchBusinesses({ limit: 12 }), // Show some recent businesses
+          fetchBusinesses({ limit: 12 }),
         ]);
 
         if (cancelled) return;
@@ -41,7 +43,7 @@ export default function CategoriesPageClient() {
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError("Failed to load data. Please try again.");
+          setError(t.messages.categoriesPage.loadError);
         }
       } finally {
         if (!cancelled) {
@@ -54,15 +56,14 @@ export default function CategoriesPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [lang]);
+  }, [lang, t]);
 
   if (loading) {
     return (
       <div className="space-y-8">
-        {/* Categories Grid Skeleton */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Browse by Category
+            {t.messages.categoriesPage.browseTitle}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(9)].map((_, i) => (
@@ -77,10 +78,9 @@ export default function CategoriesPageClient() {
           </div>
         </div>
 
-        {/* Recent Businesses Skeleton */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Recent Listings
+            {t.messages.categoriesPage.recentListingsTitle}
           </h2>
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
@@ -118,91 +118,118 @@ export default function CategoriesPageClient() {
             />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-medium text-red-900">Error</h3>
+        <h3 className="mt-4 text-lg font-medium text-red-900">
+          {t.errors.title}
+        </h3>
         <p className="mt-2 text-red-600">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          Try Again
+          {t.buttons.tryAgain}
         </button>
       </div>
     );
   }
 
+  const tierOrder: Record<string, number> = { premium: 0, claimed: 1, free: 2 };
+  const sortedRecentBusinesses = recentBusinesses
+    ? [...recentBusinesses.results].sort(
+        (a: any, b: any) =>
+          (tierOrder[a.tier ?? "free"] ?? 2) - (tierOrder[b.tier ?? "free"] ?? 2)
+      )
+    : [];
+
   return (
     <div className="space-y-12">
-      {/* Development debug info */}
-      {process.env.NODE_ENV === 'development' && (
+      {process.env.NODE_ENV === "development" && (
         <div className="text-xs bg-yellow-50 border border-yellow-200 p-2 rounded">
-          <strong>🐛 Debug:</strong> {categories.length} categories | Recent businesses: {recentBusinesses?.results?.length || 0} of {recentBusinesses?.total || 0} total
+          <strong>{t.messages.categoriesPage.debugLabel}:</strong>{" "}
+          {t.messages.categoriesPage.debugSummary
+            .replace("{categories}", String(categories.length))
+            .replace(
+              "{recent}",
+              String(recentBusinesses?.results?.length || 0)
+            )
+            .replace("{total}", String(recentBusinesses?.total || 0))}
         </div>
       )}
 
-      {/* All Categories */}
       {categories.length > 0 && (
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Business Categories
+            {t.messages.categoriesPage.categoriesTitle}
           </h2>
           <p className="text-slate-600 mb-6">
-            Explore businesses organized by industry and specialization.
+            {t.messages.categoriesPage.categoriesSubtitle}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((category) => (
-                <Link
-                  key={category.id}
-                  href={`/${lang}/categories/${category.slug}`}
-                  className="group rounded-lg bg-white p-6 shadow-sm hover:shadow-md transition-all hover:scale-105"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium text-slate-900 group-hover:text-purple-600 transition-colors">
-                        {category.name}
-                      </h3>
-                      <p className="text-sm text-slate-600">
-                        {category.business_count ? `${category.business_count.toLocaleString()} businesses` : 'Browse listings'}
-                      </p>
-                    </div>
-                    <div className="text-slate-400 group-hover:text-purple-600 transition-colors">
-                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                      </svg>
-                    </div>
+              <Link
+                key={category.id}
+                href={`/${lang}/categories/${category.slug}`}
+                className="group rounded-lg bg-white p-6 shadow-sm hover:shadow-md transition-all hover:scale-105"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-slate-900 group-hover:text-purple-600 transition-colors">
+                      {category.name}
+                    </h3>
+                    <p className="text-sm text-slate-600">
+                      {category.business_count
+                        ? t.messages.categoriesPage.businessCount.replace(
+                            "{count}",
+                            category.business_count.toLocaleString()
+                          )
+                        : t.messages.categoriesPage.browseListings}
+                    </p>
                   </div>
-                </Link>
-              ))}
+                  <div className="text-slate-400 group-hover:text-purple-600 transition-colors">
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                    </svg>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Recent Businesses */}
       {recentBusinesses && recentBusinesses.results.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">
-                Recent Listings
+                {t.messages.categoriesPage.recentListingsTitle}
               </h2>
               <p className="text-slate-600">
-                Latest businesses added to our directory.
+                {t.messages.categoriesPage.recentListingsSubtitle}
               </p>
             </div>
             <Link
               href={`/${lang}/search`}
               className="inline-flex items-center gap-1 text-sm font-medium text-purple-600 hover:text-purple-800 transition-colors"
             >
-              View all
+              {t.buttons.viewAll}
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
             </Link>
           </div>
-          <BusinessList businesses={recentBusinesses.results} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {sortedRecentBusinesses.map((business) => (
+              <div
+                key={business.id}
+                className={business.tier === "premium" ? "col-span-2" : ""}
+              >
+                <BusinessCard business={business as any} lang={lang} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Empty state */}
       {categories.length === 0 && !loading && (
         <div className="rounded-lg bg-white p-12 text-center shadow-sm">
           <div className="text-slate-400">
@@ -221,10 +248,10 @@ export default function CategoriesPageClient() {
             </svg>
           </div>
           <h3 className="mt-4 text-lg font-medium text-slate-900">
-            No categories available
+            {t.messages.categoriesPage.emptyTitle}
           </h3>
           <p className="mt-2 text-slate-600">
-            We're organizing our business categories. Please check back soon!
+            {t.messages.categoriesPage.emptyBody}
           </p>
         </div>
       )}

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
+import { normalizeLang } from '@/lib/lang';
+import { useTranslations } from '@/i18n/translations';
 
 interface Business {
   id: number;
@@ -8,14 +11,14 @@ interface Business {
   address?: string;
   address_line1?: string;
   postal_code?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   city?: {
     name: string;
-  };
+  } | null;
   country?: {
     name: string;
-  };
+  } | null;
 }
 
 interface TierStyles {
@@ -30,6 +33,9 @@ interface ContactSectionProps {
 }
 
 export function ContactSection({ business, tierStyles }: ContactSectionProps) {
+  const params = useParams();
+  const lang = normalizeLang(String(params?.lang || 'en'));
+  const t = useTranslations(lang);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -79,19 +85,21 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
     <div id="contact-section" className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Contact Form */}
       <div className={`p-6 rounded-lg border-2 ${tierStyles.borderColor} bg-white`}>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Contact {business.name}</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          {t.forms.contactForm.titleWithName.replace("{name}", business.name)}
+        </h2>
         
         {submitted ? (
           <div className={`p-4 rounded ${tierStyles.bgColor} ${tierStyles.borderColor} border`}>
             <p className={`${tierStyles.accentColor} font-medium`}>
-              Thank you for your message! We'll get back to you soon.
+              {t.forms.contactForm.sentMessage}
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Your Name *
+                {t.forms.contactForm.name} *
               </label>
               <input
                 type="text"
@@ -106,7 +114,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Your Email *
+                {t.forms.contactForm.email} *
               </label>
               <input
                 type="email"
@@ -121,7 +129,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
 
             <div>
               <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-                Message *
+                {t.forms.contactForm.message} *
               </label>
               <textarea
                 id="message"
@@ -131,7 +139,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
                 value={formData.message}
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${tierStyles.borderColor} focus:ring-orange-500 focus:border-transparent`}
-                placeholder="Tell us about your inquiry..."
+                placeholder={t.forms.contactForm.messagePlaceholder}
               />
             </div>
 
@@ -144,11 +152,11 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
                   : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
               }`}
             >
-              {isSubmitting ? 'Sending...' : 'Send Message'}
+              {isSubmitting ? t.forms.contactForm.sending : t.forms.contactForm.send}
             </button>
 
             <p className="text-xs text-gray-500">
-              * Required fields. Your information will be sent directly to the business.
+              {t.forms.contactForm.requiredNote}
             </p>
           </form>
         )}
@@ -156,7 +164,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
 
       {/* Map */}
       <div className={`p-6 rounded-lg border ${tierStyles.borderColor} bg-white`}>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Location</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.forms.contactForm.locationTitle}</h2>
         
         {mapUrl ? (
           <div className="h-64 rounded-lg overflow-hidden">
@@ -168,7 +176,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              title={`Map showing location of ${business.name}`}
+              title={t.forms.contactForm.mapTitle.replace("{name}", business.name)}
             />
           </div>
         ) : (
@@ -180,7 +188,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <p className="text-gray-500">Map not available</p>
+              <p className="text-gray-500">{t.forms.contactForm.mapUnavailable}</p>
               {(business.address_line1 || business.city?.name) && (
                 <p className="text-sm text-gray-400 mt-1">
                   {[business.address_line1, business.city?.name, business.country?.name]
@@ -195,7 +203,7 @@ export function ContactSection({ business, tierStyles }: ContactSectionProps) {
         {/* Address display */}
         {(business.address_line1 || business.city?.name) && (
           <div className="mt-4">
-            <h3 className="font-medium text-gray-700 mb-2">Address</h3>
+            <h3 className="font-medium text-gray-700 mb-2">{t.forms.contactForm.addressTitle}</h3>
             <p className="text-gray-600 text-sm">
               {[
                 business.address_line1,

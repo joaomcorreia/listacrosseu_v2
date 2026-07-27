@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { normalizeLang } from '@/lib/lang';
+import { useTranslations } from '@/i18n/translations';
 
 interface Section {
   id: number;
@@ -27,68 +29,32 @@ interface BlogPost {
   id: number;
   title: string;
   excerpt: string;
-  category: string;
-  readTime: string;
+  categoryKey: string;
+  readTimeMinutes: number;
   image: string;
   date: string;
   featured?: boolean;
 }
 
-// Static blog posts for now - in future this could be from API
-const staticBlogPosts: BlogPost[] = [
-  {
-    id: 1,
-    title: 'Top 10 European Cities for Digital Nomads in 2025',
-    excerpt: 'Discover the most remote-work-friendly cities across Europe, from affordable living costs to excellent internet infrastructure.',
-    category: 'Business Tips',
-    readTime: '5 min read',
-    image: '🌍',
-    date: 'Dec 10, 2025',
-    featured: true
-  },
-  {
-    id: 2,
-    title: 'EU Market Expansion: A Complete Guide for SMEs',
-    excerpt: 'Learn how small and medium enterprises can successfully expand across European markets with practical strategies and real case studies.',
-    category: 'Market Insights',
-    readTime: '8 min read',
-    image: '📈',
-    date: 'Dec 8, 2025',
-    featured: true
-  },
-  {
-    id: 3,
-    title: 'Understanding GDPR for Cross-Border Business',
-    excerpt: 'Navigate the complexities of European data protection regulations when operating across multiple EU member states.',
-    category: 'Industry News',
-    readTime: '6 min read',
-    image: '🔒',
-    date: 'Dec 5, 2025',
-    featured: true
-  },
-  {
-    id: 4,
-    title: 'Cultural Sensitivity in European B2B Communications',
-    excerpt: 'Master the art of cross-cultural business communication across diverse European markets for better client relationships.',
-    category: 'Business Tips',
-    readTime: '7 min read',
-    image: '🤝',
-    date: 'Dec 3, 2025',
-    featured: true
-  },
-  {
-    id: 5,
-    title: 'Sustainable Business Practices Across EU Markets',
-    excerpt: 'How European businesses are leading the green transition and what it means for your sustainability strategy.',
-    category: 'EU Regulations',
-    readTime: '6 min read',
-    image: '🌱',
-    date: 'Dec 1, 2025',
-    featured: true
-  }
-];
+
 
 export function BlogCardsSection({ section, lang }: BlogCardsSection) {
+  const resolvedLang = normalizeLang(lang || 'en');
+  const t = useTranslations(resolvedLang);
+  const formatText = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [key, value]) =>
+        result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
+      template,
+    );
+  const staticBlogPosts: BlogPost[] = t.home.blogCards.samplePosts;
+  const categorySlugMap: Record<string, string> = {
+    businessTips: 'business-tips',
+    marketInsights: 'market-insights',
+    industryNews: 'industry-news',
+    euRegulations: 'eu-regulations',
+  };
+
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -104,7 +70,7 @@ export function BlogCardsSection({ section, lang }: BlogCardsSection) {
         // Apply category filter if specified
         if (categorySlug) {
           filteredPosts = filteredPosts.filter(post => 
-            post.category.toLowerCase().replace(/\s+/g, '-') === categorySlug
+            categorySlugMap[post.categoryKey] === categorySlug
           );
         }
         
@@ -131,9 +97,14 @@ export function BlogCardsSection({ section, lang }: BlogCardsSection) {
         <section className="py-12 bg-gray-50 border-2 border-dashed border-yellow-300">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center text-yellow-600">
-              <h3 className="text-lg font-medium mb-2">🚧 Blog Cards Section (Development)</h3>
-              <p className="text-sm">No blog posts available - this section would be hidden in production</p>
-              <p className="text-xs mt-1">Section key: {section.key} | Settings: {JSON.stringify(section.settings)}</p>
+              <h3 className="text-lg font-medium mb-2">{t.home.blogCards.devTitle}</h3>
+              <p className="text-sm">{t.home.blogCards.devBody}</p>
+              <p className="text-xs mt-1">
+                {formatText(t.home.blogCards.devMeta, {
+                  key: section.key,
+                  settings: JSON.stringify(section.settings),
+                })}
+              </p>
             </div>
           </div>
         </section>
@@ -149,7 +120,7 @@ export function BlogCardsSection({ section, lang }: BlogCardsSection) {
         {/* Section Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            {section.title || 'Featured Blog Posts'}
+            {section.title || t.home.blogCards.title}
           </h2>
           {section.subtitle && (
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -192,7 +163,7 @@ export function BlogCardsSection({ section, lang }: BlogCardsSection) {
                     {/* Category and Date */}
                     <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
                       <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                        {post.category}
+                        {t.home.blogCards.categories[post.categoryKey as keyof typeof t.home.blogCards.categories] || post.categoryKey}
                       </span>
                       <span>{post.date}</span>
                     </div>
@@ -216,7 +187,7 @@ export function BlogCardsSection({ section, lang }: BlogCardsSection) {
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      {post.readTime}
+                      {post.readTimeMinutes} {t.home.blogCards.readTimeSuffix}
                     </div>
                   </div>
                 </div>

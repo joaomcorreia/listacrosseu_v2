@@ -1,20 +1,21 @@
+import { debugLog } from "@/lib/debug";
+import { PUBLIC_API_BASE_URL } from "@/lib/env.public";
+
 /**
  * API client for listings/business directory endpoints
  * Connects to Django REST Framework backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = PUBLIC_API_BASE_URL;
 
-// Debug logging in development
-if (process.env.NODE_ENV === 'development') {
-  console.log("API base URL:", API_BASE_URL);
-}
+debugLog("API base URL:", API_BASE_URL);
 
 // Type definitions matching Django serializers
 export interface Country {
   id: number;
   name: string;
   slug: string;
+  code?: string;
 }
 
 export interface CountryWithStats extends Country {
@@ -48,6 +49,8 @@ export interface Business {
   name: string;
   slug: string;
   tier: 'free' | 'claimed' | 'premium';
+  visibility_scope?: 'country' | 'eu';
+  visibility_country?: string;
   country: Country;
   city: City;
   town?: Town | null;  // Optional town/shopping center location
@@ -84,6 +87,7 @@ export interface SearchFilters {
   q?: string;
   country?: string;
   city?: string;
+  town?: string;
   category?: string;
   is_micro?: boolean;
   tier?: string;
@@ -98,6 +102,7 @@ export async function fetchBusinesses(filters: SearchFilters = {}): Promise<Busi
   if (filters.q) params.append('q', filters.q);
   if (filters.country) params.append('country', filters.country);
   if (filters.city) params.append('city', filters.city);
+  if (filters.town) params.append('town', filters.town);
   if (filters.category) params.append('category', filters.category);
   if (filters.tier) params.append('tier', filters.tier);
   if (filters.is_micro !== undefined) params.append('is_micro', filters.is_micro.toString());
@@ -106,6 +111,9 @@ export async function fetchBusinesses(filters: SearchFilters = {}): Promise<Busi
 
   // Use Next.js API route instead of calling Django directly
   const url = `/api/listings/search?${params.toString()}`;
+  if (process.env.NODE_ENV === "development") {
+    debugLog("fetchBusinesses URL:", url);
+  }
   
   const response = await fetch(url, {
     method: 'GET',
@@ -115,7 +123,13 @@ export async function fetchBusinesses(filters: SearchFilters = {}): Promise<Busi
   });
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+    console.error(`API Error: ${response.status} - ${response.statusText} (${url})`);
+    return {
+      total: 0,
+      limit: filters.limit ?? 20,
+      offset: filters.offset ?? 0,
+      results: [],
+    };
   }
 
   return response.json();
@@ -159,7 +173,7 @@ export async function fetchCountries(): Promise<Country[]> {
   const url = `/api/listings/countries/`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("🔥 fetchCountries URL:", url);
+    debugLog("🔥 fetchCountries URL:", url);
   }
   
   try {
@@ -171,7 +185,7 @@ export async function fetchCountries(): Promise<Country[]> {
     });
 
     if (process.env.NODE_ENV === 'development') {
-      console.log("🔥 fetchCountries response:", response.status, response.statusText);
+      debugLog("🔥 fetchCountries response:", response.status, response.statusText);
     }
 
     if (!response.ok) {
@@ -180,7 +194,7 @@ export async function fetchCountries(): Promise<Country[]> {
 
     const data = await response.json();
     if (process.env.NODE_ENV === 'development') {
-      console.log("🔥 fetchCountries data:", data.length, "countries");
+      debugLog("🔥 fetchCountries data:", data.length, "countries");
     }
     return data;
   } catch (error) {
@@ -195,7 +209,7 @@ export async function fetchCountriesWithStats(): Promise<CountryWithStats[]> {
   const url = `/api/listings/countries/stats/`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("🔥 fetchCountriesWithStats URL:", url);
+    debugLog("🔥 fetchCountriesWithStats URL:", url);
   }
   
   try {
@@ -207,7 +221,7 @@ export async function fetchCountriesWithStats(): Promise<CountryWithStats[]> {
     });
 
     if (process.env.NODE_ENV === 'development') {
-      console.log("🔥 fetchCountriesWithStats response:", response.status, response.statusText);
+      debugLog("🔥 fetchCountriesWithStats response:", response.status, response.statusText);
     }
 
     if (!response.ok) {
@@ -216,7 +230,7 @@ export async function fetchCountriesWithStats(): Promise<CountryWithStats[]> {
 
     const data = await response.json();
     if (process.env.NODE_ENV === 'development') {
-      console.log("🔥 fetchCountriesWithStats data:", data.length, "countries with stats");
+      debugLog("🔥 fetchCountriesWithStats data:", data.length, "countries with stats");
     }
     return data;
   } catch (error) {
@@ -251,7 +265,7 @@ export async function fetchCategories(): Promise<Category[]> {
   const url = `/api/listings/categories/`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchCategories URL:", url);
+    debugLog("fetchCategories URL:", url);
   }
   
   const response = await fetch(url, {
@@ -280,7 +294,7 @@ export async function fetchCategoriesByLocation(
   const url = `/api/listings/categories/?${params.toString()}`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchCategoriesByLocation URL:", url);
+    debugLog("fetchCategoriesByLocation URL:", url);
   }
   
   const response = await fetch(url, {
@@ -387,10 +401,11 @@ export async function fetchBusinessesByTier(tier: string, limit: number = 6): Pr
   params.append('tier', tier);
   params.append('limit', limit.toString());
   
-  const url = `${API_BASE_URL}/api/listings/businesses/?${params.toString()}`;
+  // Use featured endpoint to honor tier + limit consistently.
+  const url = `${API_BASE_URL}/api/listings/businesses/featured/?${params.toString()}`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchBusinessesByTier URL:", url);
+    debugLog("fetchBusinessesByTier URL:", url);
   }
   
   try {
@@ -424,7 +439,7 @@ export async function fetchSectionBusinessPicks(sectionId: number): Promise<Busi
   const url = `${API_BASE_URL}/api/sections/${sectionId}/business-picks/`;
   
   if (process.env.NODE_ENV === 'development') {
-    console.log("fetchSectionBusinessPicks URL:", url);
+    debugLog("fetchSectionBusinessPicks URL:", url);
   }
   
   try {
@@ -503,3 +518,6 @@ export async function fetchBusinessesWithFallback(options: {
     return [];
   }
 }
+
+
+

@@ -1,3 +1,5 @@
+import { useTranslations } from '@/i18n/translations';
+
 interface SectionItem {
   id: number;
   title: string;
@@ -20,7 +22,8 @@ interface FutureFeaturesSectionProps {
   lang?: string;
 }
 
-export function FutureFeaturesSection({ section }: FutureFeaturesSectionProps) {
+export function FutureFeaturesSection({ section, lang = "en" }: FutureFeaturesSectionProps) {
+  const t = useTranslations(lang);
   const sortedItems = [...section.items].sort((a, b) => a.order - b.order);
   
   return (
@@ -28,7 +31,7 @@ export function FutureFeaturesSection({ section }: FutureFeaturesSectionProps) {
       <div className="mx-auto max-w-6xl px-4">
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-purple-600 text-2xl">🚀</span>
+            <span className="text-purple-600 text-2xl">{t.home.futureFeatures.badgeIcon}</span>
           </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-4">
             {section.title}
@@ -45,7 +48,7 @@ export function FutureFeaturesSection({ section }: FutureFeaturesSectionProps) {
             <div key={item.id} className="bg-white p-6 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors">
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-purple-600 text-xs font-bold">⋯</span>
+                  <span className="text-purple-600 text-xs font-bold">{t.home.futureFeatures.itemIcon}</span>
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900 mb-2">{item.title}</h3>

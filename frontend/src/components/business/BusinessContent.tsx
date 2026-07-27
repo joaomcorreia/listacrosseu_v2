@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from "@/i18n/translations";
+
 interface Business {
   id: number;
   name: string;
@@ -24,9 +26,11 @@ interface TierStyles {
 interface BusinessContentProps {
   business: Business;
   tierStyles: TierStyles;
+  lang?: string;
 }
 
-export function BusinessContent({ business, tierStyles }: BusinessContentProps) {
+export function BusinessContent({ business, tierStyles, lang = "en" }: BusinessContentProps) {
+  const t = useTranslations(lang);
   const showContactInfo = business.tier === 'claimed' || business.tier === 'premium';
   const showDescription = business.tier === 'claimed' || business.tier === 'premium';
   const showPremiumContent = business.tier === 'premium';
@@ -36,13 +40,17 @@ export function BusinessContent({ business, tierStyles }: BusinessContentProps) 
       {/* Contact Information (Claimed & Premium) */}
       {showContactInfo && (business.address_line1 || business.phone || business.website) && (
         <div className={`p-6 rounded-lg border ${tierStyles.borderColor} bg-white`}>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Contact Information</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            {t.business.contactInfo}
+          </h2>
           
           <div className="space-y-3">
             {/* Address */}
             {business.address_line1 && (
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Address</h3>
+                <h3 className="font-medium text-gray-700 mb-1">
+                  {t.business.addressLabel}
+                </h3>
                 <p className="text-gray-600">
                   {business.address_line1}
                   {business.postal_code && `, ${business.postal_code}`}
@@ -53,7 +61,9 @@ export function BusinessContent({ business, tierStyles }: BusinessContentProps) 
             {/* Phone */}
             {business.phone && (
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Phone</h3>
+                <h3 className="font-medium text-gray-700 mb-1">
+                  {t.business.phoneLabel}
+                </h3>
                 <a 
                   href={`tel:${business.phone}`}
                   className={`${tierStyles.accentColor} hover:underline`}
@@ -66,14 +76,16 @@ export function BusinessContent({ business, tierStyles }: BusinessContentProps) 
             {/* Website */}
             {business.website && (
               <div>
-                <h3 className="font-medium text-gray-700 mb-1">Website</h3>
+                <h3 className="font-medium text-gray-700 mb-1">
+                  {t.business.websiteLabel}
+                </h3>
                 <a 
                   href={business.website}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`${tierStyles.accentColor} hover:underline`}
                 >
-                  Visit Website
+                  {t.business.visitWebsite}
                 </a>
               </div>
             )}
@@ -84,7 +96,9 @@ export function BusinessContent({ business, tierStyles }: BusinessContentProps) 
       {/* Basic Description (Claimed & Premium) */}
       {showDescription && business.description && (
         <div className={`p-6 rounded-lg border ${tierStyles.borderColor} bg-white`}>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">About</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            {t.business.about}
+          </h2>
           <p className="text-gray-600 leading-relaxed">
             {business.description}
           </p>
@@ -97,7 +111,9 @@ export function BusinessContent({ business, tierStyles }: BusinessContentProps) 
           {/* Premium Images Gallery */}
           {(business.image_url || (business.premium_images && business.premium_images.length > 0)) && (
             <div className={`p-6 rounded-lg border ${tierStyles.borderColor} bg-white`}>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Gallery</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                {t.business.gallery}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Main image */}
                 {business.image_url && (
@@ -127,7 +143,9 @@ export function BusinessContent({ business, tierStyles }: BusinessContentProps) 
           {/* Premium Rich Content */}
           {business.premium_content && (
             <div className={`p-6 rounded-lg border ${tierStyles.borderColor} bg-white`}>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Products & Services</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                {t.business.productsServices}
+              </h2>
               <div className="prose prose-gray max-w-none">
                 {business.premium_content.split('\n').map((paragraph, index) => (
                   paragraph.trim() && (

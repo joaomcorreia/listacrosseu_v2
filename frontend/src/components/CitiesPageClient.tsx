@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { normalizeLang } from "@/lib/lang";
+import { useTranslations } from "@/i18n/translations";
 import {
   fetchCountries,
   fetchCities,
@@ -12,11 +13,12 @@ import {
   type City,
   type BusinessSearchResult,
 } from "@/lib/api/listings";
-import BusinessList from "@/components/BusinessList";
+import BusinessCard from "@/components/BusinessCard";
 
 export default function CitiesPageClient() {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || "en"));
+  const t = useTranslations(lang);
   
   const [cities, setCities] = useState<City[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -47,7 +49,7 @@ export default function CitiesPageClient() {
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError("Failed to load cities data. Please try again.");
+          setError(t.directory.cities.errorLoad);
         }
       } finally {
         if (!cancelled) {
@@ -72,7 +74,7 @@ export default function CitiesPageClient() {
         {/* Country Filter Skeleton */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Filter by Country
+            {t.directory.cities.filterByCountry}
           </h2>
           <div className="flex flex-wrap gap-2">
             {[...Array(6)].map((_, i) => (
@@ -84,7 +86,7 @@ export default function CitiesPageClient() {
         {/* Cities Grid Skeleton */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Cities with Businesses
+            {t.directory.cities.citiesWithBusinesses}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(9)].map((_, i) => (
@@ -121,17 +123,25 @@ export default function CitiesPageClient() {
             />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-medium text-red-900">Error</h3>
+        <h3 className="mt-4 text-lg font-medium text-red-900">{t.directory.cities.errorTitle}</h3>
         <p className="mt-2 text-red-600">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          Try Again
+          {t.directory.common.tryAgain}
         </button>
       </div>
     );
   }
+
+  const tierOrder: Record<string, number> = { premium: 0, claimed: 1, free: 2 };
+  const sortedRecentBusinesses = recentBusinesses
+    ? [...recentBusinesses.results].sort(
+        (a: any, b: any) =>
+          (tierOrder[a.tier ?? "free"] ?? 2) - (tierOrder[b.tier ?? "free"] ?? 2)
+      )
+    : [];
 
   // Group cities by country
   const citiesByCountry = cities.reduce((acc, city) => {
@@ -143,12 +153,29 @@ export default function CitiesPageClient() {
     return acc;
   }, {} as Record<string, City[]>);
 
+  const getCountryAccent = (country: City["country"]) => {
+    const code = (country?.code || country?.slug || "").toUpperCase();
+    const map: Record<string, { ring: string; text: string; bar: string; badge: string }> = {
+      PT: { ring: "ring-emerald-100", text: "text-emerald-700", bar: "bg-emerald-500", badge: "bg-emerald-50" },
+      ES: { ring: "ring-amber-100", text: "text-amber-700", bar: "bg-amber-500", badge: "bg-amber-50" },
+      FR: { ring: "ring-indigo-100", text: "text-indigo-700", bar: "bg-indigo-500", badge: "bg-indigo-50" },
+      DE: { ring: "ring-slate-100", text: "text-slate-700", bar: "bg-slate-500", badge: "bg-slate-50" },
+      IT: { ring: "ring-rose-100", text: "text-rose-700", bar: "bg-rose-500", badge: "bg-rose-50" },
+      NL: { ring: "ring-sky-100", text: "text-sky-700", bar: "bg-sky-500", badge: "bg-sky-50" },
+      BE: { ring: "ring-yellow-100", text: "text-yellow-700", bar: "bg-yellow-500", badge: "bg-yellow-50" },
+      SE: { ring: "ring-blue-100", text: "text-blue-700", bar: "bg-blue-500", badge: "bg-blue-50" },
+      DK: { ring: "ring-red-100", text: "text-red-700", bar: "bg-red-500", badge: "bg-red-50" },
+      FI: { ring: "ring-cyan-100", text: "text-cyan-700", bar: "bg-cyan-500", badge: "bg-cyan-50" },
+    };
+    return map[code] || { ring: "ring-slate-100", text: "text-slate-700", bar: "bg-slate-400", badge: "bg-slate-50" };
+  };
+
   return (
     <div className="space-y-12">
       {/* Development debug info */}
       {process.env.NODE_ENV === 'development' && (
         <div className="text-xs bg-yellow-50 border border-yellow-200 p-2 rounded">
-          <strong>🐛 Debug:</strong> {cities.length} cities, {countries.length} countries | Filter: "{selectedCountry}" | Recent businesses: {recentBusinesses?.results?.length || 0} of {recentBusinesses?.total || 0} total
+          <strong>{t.directory.common.debugLabel}:</strong> {cities.length} cities, {countries.length} countries | Filter: "{selectedCountry}" | Recent businesses: {recentBusinesses?.results?.length || 0} of {recentBusinesses?.total || 0} total
         </div>
       )}
 
@@ -156,7 +183,7 @@ export default function CitiesPageClient() {
       {countries.length > 0 && (
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Filter by Country
+            {t.directory.cities.filterByCountry}
           </h2>
           <div className="flex flex-wrap gap-2">
             <button
@@ -167,7 +194,7 @@ export default function CitiesPageClient() {
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              All Countries
+              {t.directory.cities.allCountries}
             </button>
             {countries.map((country) => (
               <button
@@ -195,29 +222,39 @@ export default function CitiesPageClient() {
                 {countryName}
               </h3>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {countryCities.map((city) => (
-                  <Link
-                    key={city.id}
-                    href={`/${lang}/cities/${city.slug}`}
-                    className="group rounded-lg bg-white p-4 shadow-sm hover:shadow-md transition-all hover:scale-105"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-slate-900 group-hover:text-emerald-600 transition-colors">
-                          {city.name}
-                        </h4>
-                        <p className="text-sm text-slate-600">
-                          {city.country.name}
-                        </p>
+                {countryCities.map((city) => {
+                  const accent = getCountryAccent(city.country);
+                  const code = (city.country.code || city.country.slug || "").toUpperCase();
+                  return (
+                    <Link
+                      key={city.id}
+                      href={`/${lang}/cities/${city.slug}`}
+                      className={`group rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:-translate-y-1 ${accent.ring}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className={`font-medium text-slate-900 transition-colors ${accent.text}`}>
+                            {city.name}
+                          </h4>
+                          <p className="text-sm text-slate-600">
+                            {city.country.name}
+                          </p>
+                        </div>
+                        <div className={`text-slate-400 transition-colors ${accent.text}`}>
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+                          </svg>
+                        </div>
                       </div>
-                      <div className="text-slate-400 group-hover:text-emerald-600 transition-colors">
-                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                        </svg>
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${accent.badge} ${accent.text}`}>
+                          {code || city.country.name}
+                        </span>
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                      <div className={`mt-3 h-1 w-full rounded-full ${accent.bar}`} />
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -246,12 +283,12 @@ export default function CitiesPageClient() {
             </svg>
           </div>
           <h3 className="mt-4 text-lg font-medium text-slate-900">
-            No cities available
+            {t.directory.cities.noCitiesTitle}
           </h3>
           <p className="mt-2 text-slate-600">
             {selectedCountry 
-              ? "No cities found for the selected country." 
-              : "We're organizing our city directory. Please check back soon!"
+              ? t.directory.cities.noCitiesSelected 
+              : t.directory.cities.noCitiesGeneral
             }
           </p>
           {selectedCountry && (
@@ -259,7 +296,7 @@ export default function CitiesPageClient() {
               onClick={() => handleCountryFilter("")}
               className="mt-4 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
-              Show all cities
+              {t.directory.cities.showAllCities}
             </button>
           )}
         </div>
@@ -271,23 +308,32 @@ export default function CitiesPageClient() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">
-                Recent Listings
+                {t.directory.cities.recentListingsTitle}
               </h2>
               <p className="text-slate-600">
-                Latest businesses added to our directory.
+                {t.directory.cities.recentListingsSubtitle}
               </p>
             </div>
             <Link
               href={`/${lang}/search`}
               className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
             >
-              View all
+              {t.directory.cities.viewAll}
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
             </Link>
           </div>
-          <BusinessList businesses={recentBusinesses.results} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {sortedRecentBusinesses.map((business) => (
+              <div
+                key={business.id}
+                className={business.tier === "premium" ? "col-span-2" : ""}
+              >
+                <BusinessCard business={business as any} lang={lang} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

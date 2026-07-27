@@ -3,19 +3,29 @@
 import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
-import { normalizeLang, SUPPORTED_LANGS } from "@/lib/lang";
+import { normalizeLang } from "@/lib/lang";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import ListYourBusinessModal from "./ListYourBusinessModal";
 import { useModal } from "@/hooks/useModal";
+import { useTranslations } from "@/i18n/translations";
+import { debugLog, debugWarn } from "@/lib/debug";
+import { resolveBlogDetailTargetUrl } from "@/lib/blogRouting";
+import LanguageSelector from "@/components/LanguageSelector";
 
 type LayoutProps = {
   children: ReactNode;
   headerExtra?: ReactNode;
   headerVariant?: "overlay" | "solid";
+  withTopHeader?: boolean;
 };
 
-export default function Layout({ children, headerExtra, headerVariant = "solid" }: LayoutProps) {
+export default function Layout({
+  children,
+  headerExtra,
+  headerVariant: _headerVariant = "solid",
+  withTopHeader = false,
+}: LayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
@@ -27,7 +37,7 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
 
   useEffect(() => {
     function onScroll() {
-      setScrolled(window.scrollY > 0);
+      setScrolled(window.scrollY > 50);
     }
 
     onScroll(); // initialize
@@ -38,34 +48,79 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
   // pathname example: "/en/search" or "/nl/blog/xyz"
   const segments = pathname.split("/").filter(Boolean); // ["en", "search"]
   const currentLang = normalizeLang(String(params?.lang || "en"));
+  const t = useTranslations(currentLang);
+  const toggleMenuLabel = t.actions.toggleMenu;
 
-  function changeLang(newLang: string) {
+  async function changeLang(newLang: string) {
     const newSegments = [...segments];
     if (!newSegments.length) {
       newSegments.push(newLang);
     } else {
       newSegments[0] = newLang;
     }
+
+    const isBlogDetail = newSegments.length >= 3 && newSegments[1] === "blog";
+    if (isBlogDetail) {
+      const currentSlug = String(params?.slug || newSegments[2] || "");
+      let currentId: number | null = null;
+      try {
+        const storedId =
+          window.sessionStorage.getItem("blogPostId") ||
+          window.sessionStorage.getItem(`blogPostId:${currentLang}:${currentSlug}`);
+        currentId = storedId ? Number(storedId) : null;
+      } catch (storageError) {
+        debugWarn("Unable to read blog post id for language switch.", storageError);
+      }
+
+      const targetUrl = await resolveBlogDetailTargetUrl({
+        currentLang: currentLang,
+        currentSlug,
+        targetLang: newLang,
+        storedId: currentId,
+      });
+      router.push(targetUrl);
+      return;
+    }
+
     const newPath = "/" + newSegments.join("/");
     router.push(newPath);
   }
 
-  // Navigation items (Search and Locations hidden for preview)
-  const navItems = [
-    { href: `/${currentLang}`, label: "Home" },
-    { href: `/${currentLang}/countries`, label: "Countries" },
-    { href: `/${currentLang}/cities`, label: "Cities" },
-    { href: `/${currentLang}/blog`, label: "Blog" },
+  const browseCountries = [
+    { name: t.nav.browseCountries.portugal, slug: "pt", flag: "/images/flags/pt.png" },
+    { name: t.nav.browseCountries.spain, slug: "es", flag: "/images/flags/es.png" },
+    { name: t.nav.browseCountries.france, slug: "fr", flag: "/images/flags/fr.png" },
+    { name: t.nav.browseCountries.germany, slug: "de", flag: "/images/flags/de.png" },
+    { name: t.nav.browseCountries.italy, slug: "it", flag: "/images/flags/it.png" },
+    { name: t.nav.browseCountries.netherlands, slug: "nl", flag: "/images/flags/nl.png" },
+  ];
+
+  const browseCities = [
+    { name: t.nav.browseCities.lisbon, slug: "lisbon" },
+    { name: t.nav.browseCities.madrid, slug: "madrid" },
+    { name: t.nav.browseCities.paris, slug: "paris" },
+    { name: t.nav.browseCities.berlin, slug: "berlin" },
+    { name: t.nav.browseCities.rome, slug: "rome" },
+    { name: t.nav.browseCities.amsterdam, slug: "amsterdam" },
+  ];
+
+  const browseCategories = [
+    { name: t.nav.browseCategories.restaurants, slug: "restaurants" },
+    { name: t.nav.browseCategories.health, slug: "health" },
+    { name: t.nav.browseCategories.professional, slug: "professional-services" },
+    { name: t.nav.browseCategories.retail, slug: "retail" },
+    { name: t.nav.browseCategories.homeServices, slug: "home-services" },
+    { name: t.nav.browseCategories.beauty, slug: "beauty" },
   ];
 
   // Determine navbar appearance based on headerVariant and scroll
-  const useOverlayNavbar = headerVariant === "overlay" && !scrolled;
+  const useOverlayNavbar = !scrolled;
   
   // Check if this is an inner page (not homepage)
   const isInnerPage = pathname !== `/${currentLang}` && pathname !== `/${currentLang}/`;
 
   // Debug log to identify this component
-  console.log("NAVBAR COMPONENT:", "src/components/Layout.tsx");
+  debugLog("NAVBAR COMPONENT:", "src/components/Layout.tsx");
 
   return (
     <div className={`min-h-screen ${isInnerPage ? 'bg-slate-950' : 'bg-slate-50'}`}>
@@ -74,78 +129,193 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
         <div className="fixed inset-x-0 top-0 h-32 bg-gradient-to-r from-blue-600 to-blue-700 -z-10" />
       )}
       
-      {/* Red Development Strip */}
-      <div className="fixed top-0 inset-x-0 z-50 bg-red-600 text-white text-center text-sm py-1 h-8">
-        Website under development
-      </div>
-
       {/* Fixed Header */}
       <header
         className={[
           "fixed inset-x-0 z-40 border-b transition-all duration-200",
           useOverlayNavbar
-            ? "top-8 bg-black/20 text-white border-white/10 backdrop-blur-sm shadow-lg"
-            : "top-8 bg-white/95 text-slate-900 border-slate-200 shadow-sm backdrop-blur",
+            ? "bg-transparent text-white border-transparent"
+            : "bg-white/95 text-slate-900 border-slate-200 shadow-md backdrop-blur",
+          withTopHeader ? "top-8" : "top-0",
         ].join(" ")}
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Main navbar row */}
-          <div className="flex h-16 items-center justify-between">
-            {/* left side logo + nav */}
-            <div className="flex items-center gap-6">
+          <div className="grid h-16 grid-cols-[1fr_auto_1fr] items-center">
+            {/* left: logo */}
+            <div className="flex items-center justify-start">
               <Link href={`/${currentLang}`} className="flex items-center gap-2">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                  EU
+                  {t.nav.brandShort}
                 </span>
                 <span className="text-sm font-semibold tracking-tight">
-                  ListAcrossEU
+                  {t.nav.brandName}
                 </span>
               </Link>
-              <nav className="hidden gap-3 text-sm md:flex">
-                {navItems.map((item) => {
-                  const active = pathname === item.href;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={[
-                        "px-2 py-1 rounded-md transition-colors",
-                        active
-                          ? useOverlayNavbar
-                            ? "bg-white/20 text-white"
-                            : "bg-blue-50 text-blue-700"
-                          : useOverlayNavbar
-                            ? "text-white/90 hover:bg-white/10 hover:text-white"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                      ].join(" ")}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </nav>
             </div>
 
-            {/* right side: CTA button + language dropdown + mobile menu */}
-            <div className="flex items-center gap-3">
-              {/* Debug marker to identify this navbar */}
-              <span className="text-[10px] opacity-60 bg-red-500 text-white px-1">NAV-DEBUG-A</span>
-              
-              {/* List Your Business Free Button */}
-              <button 
-                onClick={listBusinessModal.openModal}
-                className={[
-                  "hidden sm:inline-flex px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200",
-                  useOverlayNavbar
-                    ? "bg-white text-blue-600 hover:bg-blue-50 shadow-md"
-                    : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm",
-                ].join(" ")}
-              >
-                List Your Business Free
-              </button>
-              
-              {/* Mobile menu button */}
+            {/* center: nav */}
+            <div className="hidden items-center justify-center gap-6 md:flex">
+              <nav className="flex items-center gap-3 text-sm">
+                <Link
+                  href={`/${currentLang}`}
+                  className={[
+                    "px-2 py-1 rounded-md transition-colors",
+                    pathname === `/${currentLang}`
+                      ? useOverlayNavbar
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-50 text-blue-700"
+                      : useOverlayNavbar
+                        ? "text-white/90 hover:bg-white/10 hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                  ].join(" ")}
+                >
+                  {t.nav.home}
+                </Link>
+
+                <div className="relative group">
+                  <button
+                    className={[
+                      "px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1",
+                      useOverlayNavbar
+                        ? "text-white/90 hover:bg-white/10 hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                    ].join(" ")}
+                    type="button"
+                  >
+                    {t.nav.browse}
+                    <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5.25 7.5L10 12.25 14.75 7.5H5.25z" />
+                    </svg>
+                  </button>
+                  <div className="absolute left-1/2 top-full mt-3 w-[720px] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    <div className="grid gap-6 p-6 lg:grid-cols-3">
+                      <div>
+                        <Link
+                          href={`/${currentLang}/countries`}
+                          className="text-sm font-semibold text-slate-900 mb-3 inline-flex hover:text-blue-700"
+                        >
+                          {t.nav.countries}
+                        </Link>
+                        <div className="grid grid-cols-2 gap-3">
+                          {browseCountries.map((country) => (
+                            <Link
+                              key={country.slug}
+                              href={`/${currentLang}/countries/${country.slug}`}
+                              className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                            >
+                              <img
+                                src={country.flag}
+                                alt={country.name}
+                                className="h-4 w-4 rounded-full object-cover"
+                              />
+                              <span>{country.name}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Link
+                          href={`/${currentLang}/cities`}
+                          className="text-sm font-semibold text-slate-900 mb-3 inline-flex hover:text-blue-700"
+                        >
+                          {t.nav.cities}
+                        </Link>
+                        <div className="space-y-2">
+                          {browseCities.map((city) => (
+                            <Link
+                              key={city.slug}
+                              href={`/${currentLang}/cities/${city.slug}`}
+                              className="block rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                            >
+                              {city.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Link
+                          href={`/${currentLang}/categories`}
+                          className="text-sm font-semibold text-slate-900 mb-3 inline-flex hover:text-blue-700"
+                        >
+                          {t.nav.categories}
+                        </Link>
+                        <div className="grid grid-cols-1 gap-2">
+                          {browseCategories.map((category) => (
+                            <Link
+                              key={category.slug}
+                              href={`/${currentLang}/categories/${category.slug}`}
+                              className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                            >
+                              <span className="h-2 w-2 rounded-full bg-blue-500" />
+                              <span>{category.name}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/${currentLang}/pricing`}
+                  className={[
+                    "px-2 py-1 rounded-md transition-colors",
+                    pathname === `/${currentLang}/pricing`
+                      ? useOverlayNavbar
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-50 text-blue-700"
+                      : useOverlayNavbar
+                        ? "text-white/90 hover:bg-white/10 hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                  ].join(" ")}
+                >
+                  {t.nav.pricing}
+                </Link>
+
+                <button
+                  onClick={listBusinessModal.openModal}
+                  className={[
+                    "px-2 py-1 rounded-md transition-colors",
+                    useOverlayNavbar
+                      ? "text-white/90 hover:bg-white/10 hover:text-white"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                  ].join(" ")}
+                  type="button"
+                >
+                  {t.nav.listYourBusiness}
+                </button>
+
+                <Link
+                  href={`/${currentLang}/blog`}
+                  className={[
+                    "px-2 py-1 rounded-md transition-colors",
+                    pathname === `/${currentLang}/blog`
+                      ? useOverlayNavbar
+                        ? "bg-white/20 text-white"
+                        : "bg-blue-50 text-blue-700"
+                      : useOverlayNavbar
+                        ? "text-white/90 hover:bg-white/10 hover:text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                  ].join(" ")}
+                >
+                  {t.nav.blog}
+                </Link>
+              </nav>
+
+            </div>
+
+            {/* right: mobile controls */}
+            <div className="flex items-center justify-end gap-3 md:justify-end">
+              <div className="hidden md:block">
+                <LanguageSelector
+                  buttonClassName={
+                    useOverlayNavbar
+                      ? "text-white/90 hover:bg-white/10"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }
+                />
+              </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className={[
@@ -154,36 +324,23 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
                     ? "text-white hover:bg-white/10"
                     : "text-slate-600 hover:bg-slate-100",
                 ].join(" ")}
-                aria-label="Toggle menu"
+                aria-label={toggleMenuLabel}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="lang-selector"
-                  className="hidden text-xs font-medium md:inline-block opacity-90"
-                >
-                  Language
-                </label>
-                <select
-                  id="lang-selector"
-                  value={currentLang}
-                  onChange={(e) => changeLang(e.target.value)}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                >
-                  {SUPPORTED_LANGS.map((code) => (
-                    <option key={code} value={code}>
-                      {code.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
+              <div className="md:hidden">
+                <LanguageSelector
+                  buttonClassName={
+                    useOverlayNavbar
+                      ? "text-white/90 hover:bg-white/10"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }
+                />
               </div>
             </div>
           </div>
-
         </div>
       </header>
 
@@ -197,35 +354,60 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
           />
           
           {/* Menu Panel */}
-          <div className="absolute top-[88px] left-0 right-0 bg-white border-b border-slate-200 shadow-lg">
+          <div
+            className={`absolute ${
+              withTopHeader ? "top-[120px]" : "top-[88px]"
+            } left-0 right-0 bg-white border-b border-slate-200 shadow-lg`}
+          >
             <div className="px-4 py-2 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
-                >
-                  {item.label}
-                </Link>
-              ))}
-              {/* Mobile CTA */}
+              <Link
+                href={`/${currentLang}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+              >
+                {t.nav.home}
+              </Link>
+              <Link
+                href={`/${currentLang}/countries`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+              >
+                {t.nav.browse}
+              </Link>
+              <Link
+                href={`/${currentLang}/pricing`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+              >
+                {t.nav.pricing}
+              </Link>
               <button
                 onClick={() => {
                   listBusinessModal.openModal();
                   setMobileMenuOpen(false);
                 }}
-                className="block mt-4 w-full px-3 py-2 bg-blue-600 text-white text-center rounded-md font-medium hover:bg-blue-700"
+                className="block w-full px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-left"
               >
-                List Your Business Free
+                {t.nav.listYourBusiness}
               </button>
+              <Link
+                href={`/${currentLang}/blog`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
+              >
+                {t.nav.blog}
+              </Link>
             </div>
           </div>
         </div>
       )}
 
       {/* Main content */}
-      <main className={`${useOverlayNavbar ? "pt-[88px]" : "pt-[88px]"} transition-all duration-200 ${isInnerPage ? 'bg-slate-50' : ''}`}>
+      <main
+        className={`${
+          withTopHeader ? "pt-[96px]" : "pt-[64px]"
+        } transition-all duration-200 ${isInnerPage ? "bg-slate-50" : ""}`}
+      >
         {children}
       </main>
 
@@ -241,7 +423,7 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
         onClose={listBusinessModal.closeModal}
         onSubmit={async (data) => {
           // Demo submission handler
-          console.log('List Business Form Data:', data);
+          debugLog('List Business Form Data:', data);
           
           // Try to submit to API, fallback to demo success
           try {
@@ -253,13 +435,14 @@ export default function Layout({ children, headerExtra, headerVariant = "solid" 
             
             if (!response.ok) throw new Error('API submission failed');
             
-            alert('Business listing submitted successfully!');
+            alert(t.forms.listBusiness.messages.submitSuccess);
           } catch (error) {
             // Fallback for demo
-            alert('Business submitted (demo mode) - Thank you!');
+            alert(t.forms.listBusiness.messages.submitDemoSuccess);
           }
         }}
       />
     </div>
   );
 }
+

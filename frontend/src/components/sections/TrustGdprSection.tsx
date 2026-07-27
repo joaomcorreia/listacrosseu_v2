@@ -1,3 +1,5 @@
+import { useTranslations } from '@/i18n/translations';
+
 interface Section {
   id: number;
   key: string;
@@ -12,7 +14,8 @@ interface TrustGdprSectionProps {
   lang?: string;
 }
 
-export function TrustGdprSection({ section }: TrustGdprSectionProps) {
+export function TrustGdprSection({ section, lang = "en" }: TrustGdprSectionProps) {
+  const t = useTranslations(lang);
   const trustPoints = (section.body || '').split('\n\n').filter(line => line.trim());
   
   return (
@@ -20,7 +23,7 @@ export function TrustGdprSection({ section }: TrustGdprSectionProps) {
       <div className="mx-auto max-w-4xl px-4">
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-emerald-600 text-2xl">🔒</span>
+            <span className="text-emerald-600 text-2xl">{t.home.trustGdpr.badgeIcon}</span>
           </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-4">
             {section.title}
@@ -32,7 +35,9 @@ export function TrustGdprSection({ section }: TrustGdprSectionProps) {
             {trustPoints.map((point, index) => (
               <div key={index} className="flex items-start gap-4">
                 <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-emerald-600 text-sm font-bold">✓</span>
+                  <span className="text-emerald-600 text-sm font-bold">
+                    {t.home.trustGdpr.checkIcon}
+                  </span>
                 </div>
                 <p className="text-slate-700 leading-relaxed">{point.trim()}</p>
               </div>

@@ -1,3 +1,5 @@
+import { debugWarn } from "@/lib/debug";
+
 import * as React from 'react';
 import { API_BASE_URL } from "./api";
 
@@ -13,7 +15,7 @@ export async function fetchUiText(group: string, lang: string): Promise<Record<s
       `${API_BASE_URL}/api/ui/texts/${group}/?lang=${lang}`
     );
     if (!res.ok) {
-      console.warn(`Failed to fetch UI text for group ${group} in language ${lang}`);
+      debugWarn(`Failed to fetch UI text for group ${group} in language ${lang}`);
       return {};
     }
     const json = await res.json();

@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { normalizeLang } from '@/lib/lang';
+import { useTranslations } from '@/i18n/translations';
 import { fetchCountries, fetchCategories } from '@/lib/api/listings';
+import { PUBLIC_API_BASE_URL } from '@/lib/env.public';
 
-// Add CSS animation for progress bar
+// Progress bar styling (width controlled by state)
 const progressAnimation = `
   .progress-bar {
     width: 0%;
-    animation: progress 3s linear infinite;
-  }
-  
-  @keyframes progress {
-    0% { width: 0%; }
-    100% { width: 100%; }
+    height: 100%;
+    transition: width 50ms linear;
   }
 `;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = PUBLIC_API_BASE_URL;
 
 interface CountryWithCount {
   id: number;
@@ -116,7 +116,10 @@ async function fetchCategoriesWithCounts(countrySlug: string): Promise<CategoryW
   return response.json();
 }
 
-export default function CountryExplorer() {
+export default function CountryExplorer({ settings: _settings }: { settings?: Record<string, unknown> } = {}) {
+  const params = useParams();
+  const lang = normalizeLang(String(params?.lang || 'en'));
+  const t = useTranslations(lang);
   const [countries, setCountries] = useState<CountryWithCount[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<CountryWithCount | null>(null);
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
@@ -124,6 +127,8 @@ export default function CountryExplorer() {
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const categoriesCache = useRef(new Map<string, CategoryWithCount[]>());
 
   // Fetch countries on component mount
   useEffect(() => {
@@ -190,6 +195,7 @@ export default function CountryExplorer() {
           const initialCountry = germany || countriesWithColors[0];
           setSelectedCountry(initialCountry);
           setCurrentIndex(countriesWithColors.indexOf(initialCountry));
+          setProgress(0);
         }
         setLoading(false);
       } catch (error) {
@@ -204,14 +210,19 @@ export default function CountryExplorer() {
   // Fetch categories when selected country changes
   useEffect(() => {
     if (selectedCountry) {
+      const cached = categoriesCache.current.get(selectedCountry.slug);
+      if (cached) {
+        setCategories(cached);
+        return;
+      }
       const loadCategories = async () => {
         setCategoriesLoading(true);
         try {
-          // Add a small delay to make the transition smoother
-          await new Promise(resolve => setTimeout(resolve, 100));
           // Use country slug for filtering instead of derived code
           const categoriesData = await fetchCategoriesWithCounts(selectedCountry.slug);
-          setCategories(categoriesData.slice(0, 5)); // Show top 5 categories
+          const topCategories = categoriesData.slice(0, 5); // Show top 5 categories
+          categoriesCache.current.set(selectedCountry.slug, topCategories);
+          setCategories(topCategories);
         } catch (error) {
           console.error('Error fetching categories:', error);
           setCategories([]);
@@ -228,12 +239,19 @@ export default function CountryExplorer() {
     if (!isAutoPlaying || countries.length === 0) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex(prevIndex => {
-        const nextIndex = (prevIndex + 1) % Math.min(countries.length, 16); // Cycle through first 16 countries
-        setSelectedCountry(countries[nextIndex]);
-        return nextIndex;
+      setProgress(prev => {
+        const next = prev + (100 * 50) / 5000;
+        if (next >= 100) {
+          setCurrentIndex(prevIndex => {
+            const nextIndex = (prevIndex + 1) % Math.min(countries.length, 16);
+            setSelectedCountry(countries[nextIndex]);
+            return nextIndex;
+          });
+          return 0;
+        }
+        return next;
       });
-    }, 3000);
+    }, 50);
 
     return () => clearInterval(interval);
   }, [countries, isAutoPlaying]);
@@ -242,6 +260,7 @@ export default function CountryExplorer() {
     setIsAutoPlaying(false); // Pause auto-cycling when user manually selects
     setSelectedCountry(country);
     setCurrentIndex(countries.indexOf(country));
+    setProgress(0);
     
     // Resume auto-cycling after 10 seconds of no interaction
     setTimeout(() => {
@@ -255,7 +274,7 @@ export default function CountryExplorer() {
         <div className="mx-auto max-w-7xl px-4">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-slate-600">Loading countries...</p>
+            <p className="mt-4 text-slate-600">{t.home.countryExplorer.loadingCountries}</p>
           </div>
         </div>
       </section>
@@ -269,11 +288,10 @@ export default function CountryExplorer() {
         <div className="mx-auto max-w-7xl px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-slate-900 mb-4">
-            Explore European Markets
+            {t.home.countryExplorer.title}
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Discover businesses across all 27 EU member states. From bustling metropolises to charming local
-            markets, connect with the heart of European commerce.
+            {t.home.countryExplorer.subtitle}
           </p>
         </div>
 
@@ -282,7 +300,7 @@ export default function CountryExplorer() {
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-slate-900">
-                Select a Country to Explore
+                {t.home.countryExplorer.selectCountry}
               </h3>
               <button
                 onClick={() => setIsAutoPlaying(!isAutoPlaying)}
@@ -293,14 +311,14 @@ export default function CountryExplorer() {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd"/>
                     </svg>
-                    Pause
+                    {t.home.countryExplorer.pause}
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/>
                     </svg>
-                    Play
+                    {t.home.countryExplorer.play}
                   </>
                 )}
               </button>
@@ -317,9 +335,14 @@ export default function CountryExplorer() {
                   }`}
                 >
                   {/* Auto-play progress indicator */}
-                  {selectedCountry?.code === country.code && isAutoPlaying && (
-                    <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600 progress-bar"></div>
-                  )}
+                  <div className="absolute bottom-0 left-0 h-[3px] w-full bg-slate-200">
+                    {selectedCountry?.code === country.code && isAutoPlaying && (
+                      <div
+                        className="h-full bg-blue-500 progress-bar"
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    )}
+                  </div>
                 
                   <div className={`text-2xl font-bold mb-1 ${
                     selectedCountry?.code === country.code ? 'text-blue-600' : 'text-slate-900'
@@ -342,7 +365,7 @@ export default function CountryExplorer() {
             
             <div className="mt-6">
               <a href="/en/countries" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
-                View All {countries.length} EU Countries
+                {t.home.countryExplorer.viewAllCountries.replace("{count}", String(countries.length))}
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
                 </svg>
@@ -358,13 +381,16 @@ export default function CountryExplorer() {
                   <div className="text-4xl font-bold mb-2">{selectedCountry.code}</div>
                   <h4 className="text-xl font-semibold mb-2">{selectedCountry.name}</h4>
                   <p className="text-white/90 mb-4">
-                    {formatBusinessCount(selectedCountry.business_count)} Registered Businesses
+                    {t.home.countryExplorer.registeredBusinesses.replace(
+                      "{count}",
+                      formatBusinessCount(selectedCountry.business_count),
+                    )}
                   </p>
                   <a 
                     href={`/en/countries/${selectedCountry.code}`} 
                     className="inline-block bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-lg font-medium hover:bg-white/30 transition-colors border border-white/30"
                   >
-                    Explore {selectedCountry.name} →
+                    {t.home.countryExplorer.exploreCountry.replace("{country}", selectedCountry.name)}
                   </a>
                 </div>
               </div>
@@ -372,14 +398,14 @@ export default function CountryExplorer() {
 
             {/* Popular Categories for Selected Country */}
             <div className="mt-6 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h4 className="font-semibold text-slate-900 mb-4">Popular Business Categories</h4>
+              <h4 className="font-semibold text-slate-900 mb-4">{t.home.countryExplorer.popularCategories}</h4>
               
               <div className="h-[360px] transition-all duration-300 ease-in-out overflow-hidden">
                 {categoriesLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="mt-2 text-sm text-slate-600">Loading categories...</p>
+                      <p className="mt-2 text-sm text-slate-600">{t.home.countryExplorer.loadingCategories}</p>
                     </div>
                   </div>
                 ) : (
@@ -402,10 +428,16 @@ export default function CountryExplorer() {
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-medium text-slate-900">
-                            {formatBusinessCount(category.business_count || 0)} businesses
+                            {t.home.countryExplorer.businessesLabel.replace(
+                              "{count}",
+                              formatBusinessCount(category.business_count || 0),
+                            )}
                           </div>
                           <div className="text-xs text-slate-500">
-                            in {selectedCountry?.name}
+                            {t.home.countryExplorer.inCountryLabel.replace(
+                              "{country}",
+                              selectedCountry?.name || "",
+                            )}
                           </div>
                         </div>
                       </a>
@@ -414,7 +446,7 @@ export default function CountryExplorer() {
                         
                         {categories.length === 0 && (
                           <div className="flex items-center justify-center h-full">
-                            <p className="text-slate-500 text-center">No categories data available for this country</p>
+                            <p className="text-slate-500 text-center">{t.home.countryExplorer.noCategories}</p>
                           </div>
                         )}
                       </div>
@@ -424,7 +456,7 @@ export default function CountryExplorer() {
               
               <div className="mt-4 pt-4 border-t border-slate-200">
                 <a href="/en/categories" className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                  Browse All Categories
+                  {t.home.countryExplorer.browseAllCategories}
                 </a>
               </div>
             </div>
@@ -435,3 +467,5 @@ export default function CountryExplorer() {
     </>
   );
 }
+
+

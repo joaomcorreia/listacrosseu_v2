@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import TownPageClient from './TownPageClient';
+import { INTERNAL_BACKEND_URL } from '@/lib/env.server';
 
 interface PageProps {
   params: Promise<{
@@ -13,7 +14,7 @@ interface PageProps {
 async function getTownData(townSlug: string) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003'}/api/geo/towns/${townSlug}/`,
+      `${INTERNAL_BACKEND_URL}/api/geo/towns/${townSlug}/`,
       { 
         next: { revalidate: 3600 } // Revalidate every hour
       }
@@ -33,7 +34,7 @@ async function getTownData(townSlug: string) {
 async function getTownBusinesses(townSlug: string) {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8003'}/api/geo/towns/${townSlug}/businesses/?limit=20`,
+      `${INTERNAL_BACKEND_URL}/api/geo/towns/${townSlug}/businesses/?limit=20`,
       { 
         next: { revalidate: 1800 } // Revalidate every 30 minutes
       }

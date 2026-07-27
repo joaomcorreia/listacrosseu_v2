@@ -50,7 +50,7 @@ export default function SnowBackground({
           className="snow-layer snow-layer-md"
           style={{ 
             opacity: getLayerOpacity(0.8),
-            animationDuration: intensity === 'high' ? '35s' : intensity === 'low' ? '60s' : '45s'
+            animationDuration: intensity === 'high' ? '35s' : '45s'
           }}
         />
       )}

@@ -213,6 +213,7 @@ export default function VisualHomepageEditor() {
   const [previewKey, setPreviewKey] = useState(Date.now());
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [csrfToken, setCsrfToken] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -232,6 +233,7 @@ export default function VisualHomepageEditor() {
       });
       const data = await res.json();
       setIsAuthenticated(data.authenticated);
+      setCsrfToken(data.csrfToken || "");
       if (data.authenticated) {
         loadSections();
       }
@@ -271,6 +273,7 @@ export default function VisualHomepageEditor() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
           },
           credentials: 'include',
           body: JSON.stringify({ order })
@@ -289,8 +292,9 @@ export default function VisualHomepageEditor() {
       const res = await fetch(`${API_BASE_URL}/api/admin/sections/${section.id}/`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-        },
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
         credentials: 'include',
         body: JSON.stringify(section)
       });

@@ -59,6 +59,7 @@ class BlogPostFlatListSerializer(serializers.ModelSerializer):
     Flattened serializer for blog post lists that matches frontend expectations.
     Includes translated fields directly on the post object.
     """
+    slug = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()
     excerpt = serializers.SerializerMethodField()
     language = serializers.SerializerMethodField()
@@ -69,10 +70,10 @@ class BlogPostFlatListSerializer(serializers.ModelSerializer):
         model = BlogPost
         fields = [
             "id",
-            "slug",
             "status",
             "published_at",
             "hero_image_url",
+            "slug",
             "title",
             "excerpt",
             "language",
@@ -85,32 +86,29 @@ class BlogPostFlatListSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
 
     def get_translation(self, obj):
-        """Get the translation for the requested language, fallback to English."""
-        translation = None
-        # Try to get requested language
+        """Get the published translation for the requested language."""
         for t in obj.translations.all():
             if t.language == self.request_language and t.is_published:
-                translation = t
-                break
-        
-        # Fallback to English
-        if not translation:
+                return t
+
+        # Only fallback when no specific language is requested.
+        if not self.request_language:
             for t in obj.translations.all():
-                if t.language == 'en' and t.is_published:
-                    translation = t
-                    break
-        
-        # Fallback to first available translation
-        if not translation:
+                if t.language == "en" and t.is_published:
+                    return t
             published_translations = [t for t in obj.translations.all() if t.is_published]
             if published_translations:
-                translation = published_translations[0]
-        
-        return translation
+                return published_translations[0]
+
+        return None
 
     def get_title(self, obj):
         translation = self.get_translation(obj)
         return translation.title if translation else obj.slug
+
+    def get_slug(self, obj):
+        translation = self.get_translation(obj)
+        return translation.slug if translation and translation.slug else obj.slug
 
     def get_excerpt(self, obj):
         translation = self.get_translation(obj)
@@ -154,28 +152,20 @@ class BlogPostFlatDetailSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
 
     def get_translation_obj(self, obj):
-        """Get the translation for the requested language, fallback to English."""
-        translation = None
-        # Try to get requested language
+        """Get the published translation for the requested language."""
         for t in obj.translations.all():
             if t.language == self.request_language and t.is_published:
-                translation = t
-                break
-        
-        # Fallback to English
-        if not translation:
+                return t
+
+        if not self.request_language:
             for t in obj.translations.all():
-                if t.language == 'en' and t.is_published:
-                    translation = t
-                    break
-        
-        # Fallback to first available translation
-        if not translation:
+                if t.language == "en" and t.is_published:
+                    return t
             published_translations = [t for t in obj.translations.all() if t.is_published]
             if published_translations:
-                translation = published_translations[0]
-        
-        return translation
+                return published_translations[0]
+
+        return None
 
     def get_translation(self, obj):
         translation = self.get_translation_obj(obj)

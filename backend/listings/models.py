@@ -1,9 +1,12 @@
+import uuid
+
 from django.db import models
 from django.utils.text import slugify
 
 
 class Country(models.Model):
     name = models.CharField(max_length=120, unique=True)
+    code = models.CharField(max_length=2, blank=True)
     slug = models.SlugField(max_length=150, unique=True, blank=True)
 
     class Meta:
@@ -77,6 +80,16 @@ class Business(models.Model):
         ("claimed", "Claimed"),
         ("premium", "Premium"),
     ]
+
+    VISIBILITY_SCOPE_CHOICES = [
+        ("country", "Country"),
+        ("eu", "EU-wide"),
+    ]
+
+    PREMIUM_LAYOUT_WIDTH_CHOICES = [
+        ("boxed", "Boxed"),
+        ("full", "Full width"),
+    ]
     
     # Core identifiers
     name = models.CharField(max_length=255)
@@ -88,6 +101,25 @@ class Business(models.Model):
         choices=LISTING_TIER_CHOICES,
         default="free",
         help_text="Listing tier determines display layout and available features"
+    )
+
+    visibility_scope = models.CharField(
+        max_length=10,
+        choices=VISIBILITY_SCOPE_CHOICES,
+        default="eu",
+        help_text="Premium visibility scope (country or EU-wide).",
+    )
+    visibility_country = models.CharField(
+        max_length=2,
+        blank=True,
+        help_text="ISO 2-letter country code required when visibility_scope=country.",
+    )
+
+    premium_layout_width = models.CharField(
+        max_length=10,
+        choices=PREMIUM_LAYOUT_WIDTH_CHOICES,
+        default="boxed",
+        help_text="Layout width for premium business page.",
     )
 
     # Location
@@ -194,6 +226,19 @@ class BusinessClaimRequest(models.Model):
     business_name = models.CharField(max_length=255)
     business_address = models.TextField()
     business_post_code = models.CharField(max_length=20)
+
+    # Verification fields
+    verification_token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("pending", "Pending Verification"),
+            ("verified", "Verified"),
+            ("expired", "Expired"),
+        ],
+        default="pending",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
     
     # Tracking
     created_at = models.DateTimeField(auto_now_add=True)

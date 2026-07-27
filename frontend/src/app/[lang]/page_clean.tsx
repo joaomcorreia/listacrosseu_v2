@@ -1,7 +1,10 @@
 import Layout from "@/components/Layout";
-import TopHeader from "@/components/TopHeader";
 import SectionRenderer from "@/components/sections/SectionRenderer";
+import AdPlaceholder from "@/components/ads/AdPlaceholder";
 import { fetchPage, type PageData } from "@/lib/api";
+import FlagCarousel from "@/components/FlagCarousel";
+import BlogCarousel from "@/components/BlogCarousel";
+import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 
 interface HomeLangPageProps {
   params: {
@@ -20,8 +23,7 @@ export default async function HomeLangPage({ params }: HomeLangPageProps) {
     // Fallback to a basic error page
     return (
       <>
-        <TopHeader />
-        <Layout>
+        <Layout headerVariant="overlay">
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">
@@ -44,11 +46,29 @@ export default async function HomeLangPage({ params }: HomeLangPageProps) {
 
   return (
     <>
-      <TopHeader />
-      <Layout>
-        {activeSections.map((section) => (
-          <SectionRenderer key={section.id} section={section} />
+      <Layout headerVariant="overlay">
+        {activeSections
+          .filter(
+            (section) =>
+              section.type !== "listings_claimed" &&
+              section.type !== "listings_premium",
+          )
+          .map((section, index) => (
+          <div key={section.id}>
+            <SectionRenderer section={section} />
+            {index === 0 && <FlagCarousel />}
+            {(index === 0 || (index + 1) % 3 === 0) && (
+              <div className="py-8">
+                <AdPlaceholder variant="banner" />
+              </div>
+            )}
+          </div>
         ))}
+        <div className="py-8">
+          <AdPlaceholder variant="banner" />
+        </div>
+        <BlogCarousel />
+        <BlogPostsSlider lang={lang} mode="eu" />
       </Layout>
     </>
   );

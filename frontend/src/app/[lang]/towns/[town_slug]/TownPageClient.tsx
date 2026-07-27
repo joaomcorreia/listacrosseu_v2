@@ -70,6 +70,7 @@ interface Business {
   phone?: string;
   description?: string;
   keywords?: string[];
+  tier?: 'free' | 'claimed' | 'premium';
   is_micro?: boolean;
   employee_count?: number;
 }
@@ -161,6 +162,12 @@ export default function TownPageClient({
     claimModal.openModal();
   };
 
+  const tierOrder: Record<string, number> = { premium: 0, claimed: 1, free: 2 };
+  const sortedBusinesses = [...filteredBusinesses].sort(
+    (a, b) =>
+      (tierOrder[a.tier ?? "free"] ?? 2) - (tierOrder[b.tier ?? "free"] ?? 2)
+  );
+
   return (
     <Layout>
       <div className="min-h-screen bg-gray-50">
@@ -198,7 +205,7 @@ export default function TownPageClient({
                 <button
                   onClick={() => {
                     setSelectedBusiness(null);
-                    setIsClaimModalOpen(true);
+                    claimModal.openModal();
                   }}
                   className="bg-white text-green-700 px-6 py-3 rounded-lg font-medium hover:bg-green-50 transition-colors inline-flex items-center"
                 >
@@ -237,9 +244,12 @@ export default function TownPageClient({
           {/* Business Grid - Using CSS columns for mixed heights */}
           {filteredBusinesses.length > 0 ? (
             <>
-              <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-6 mb-8">
-                {filteredBusinesses.map((business) => (
-                  <div key={business.id} className="break-inside-avoid mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+                {sortedBusinesses.map((business) => (
+                  <div
+                    key={business.id}
+                    className={business.tier === "premium" ? "col-span-2" : ""}
+                  >
                     <BusinessCard
                       business={business as any}
                       onClaim={() => {
@@ -280,7 +290,7 @@ export default function TownPageClient({
               <button
                 onClick={() => {
                   setSelectedBusiness(null);
-                  setIsClaimModalOpen(true);
+                  claimModal.openModal();
                 }}
                 className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center"
               >
@@ -296,10 +306,6 @@ export default function TownPageClient({
           business={(selectedBusiness as any) || undefined}
           isOpen={claimModal.isOpen}
           onClose={claimModal.closeModal}
-          onSubmit={async (data) => {
-            console.log('Demo claim submission:', data);
-            alert(`Demo: Claim submitted for ${data.business_name}! In production, this would process the claim request.`);
-          }}
         />
       </div>
     </Layout>

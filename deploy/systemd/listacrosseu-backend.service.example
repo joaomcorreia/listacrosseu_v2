@@ -1,0 +1,19 @@
+[Unit]
+Description=ListAcrossEU Django backend (Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=<DEPLOY_USER>
+Group=<DEPLOY_GROUP>
+WorkingDirectory=<BACKEND_DIR>
+EnvironmentFile=<BACKEND_ENV_FILE>
+ExecStart=<VENV_DIR>/bin/gunicorn listacrosseu_backend.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

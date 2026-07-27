@@ -1,11 +1,13 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from .models import BlogCategory, BlogPost
+from .models import BlogCategory, BlogPost, BlogPostTranslation
 from .serializers import (
     BlogCategorySerializer,
     BlogPostListSerializer,
@@ -37,6 +39,25 @@ class BlogPostViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["-published_at", "-created_at"]
     lookup_field = "slug"
 
+    def get_object(self):
+        """
+        Lookup by translation slug for the requested language.
+        """
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+        language = self.request.query_params.get("lang", "en")
+        queryset = self.filter_queryset(self.get_queryset())
+
+        obj = get_object_or_404(
+            queryset,
+            translations__slug=lookup_value,
+            translations__language=language,
+            translations__is_published=True,
+        )
+
+        self.check_object_permissions(self.request, obj)
+        return obj
+
     def get_serializer_class(self):
         if self.action == "retrieve":
             # Use flattened serializer for detail view when lang parameter is provided
@@ -53,7 +74,14 @@ class BlogPostViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         # Only show published posts in API
-        return queryset.filter(status=BlogPost.STATUS_PUBLISHED)
+        queryset = queryset.filter(status=BlogPost.STATUS_PUBLISHED)
+        request_language = self.request.query_params.get("lang")
+        if request_language:
+            queryset = queryset.filter(
+                translations__language=request_language,
+                translations__is_published=True,
+            )
+        return queryset.distinct()
 
     def get_serializer(self, *args, **kwargs):
         """
@@ -90,3 +118,52 @@ class BlogPostViewSet(viewsets.ReadOnlyModelViewSet):
         posts = self.get_queryset().filter(categories=category)
         serializer = self.get_serializer(posts, many=True)
         return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def blog_post_resolve(request):
+    lang = request.query_params.get("lang", "en").strip()
+    slug = request.query_params.get("slug", "").strip()
+
+    if not slug:
+        return Response({"detail": "slug is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    translation = (
+        BlogPostTranslation.objects.select_related("post")
+        .filter(
+            language=lang,
+            slug=slug,
+            is_published=True,
+            post__status=BlogPost.STATUS_PUBLISHED,
+        )
+        .first()
+    )
+    if not translation:
+        return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({"id": translation.post_id}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def blog_post_slug_by_id(request, post_id: int):
+    lang = request.query_params.get("lang", "en").strip()
+
+    translation = (
+        BlogPostTranslation.objects.select_related("post")
+        .filter(
+            post_id=post_id,
+            language=lang,
+            is_published=True,
+            post__status=BlogPost.STATUS_PUBLISHED,
+        )
+        .first()
+    )
+    if not translation:
+        return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(
+        {"id": translation.post_id, "slug": translation.slug, "lang": lang},
+        status=status.HTTP_200_OK,
+    )

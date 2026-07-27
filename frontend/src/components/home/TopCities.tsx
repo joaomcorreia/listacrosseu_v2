@@ -3,12 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { fetchCities, type City } from '@/lib/api/geo';
+import { useTranslations } from '@/i18n/translations';
+import { debugWarn } from '@/lib/debug';
 
 interface TopCitiesProps {
   lang: string;
 }
 
 const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
+  const t = useTranslations(lang);
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,7 +21,7 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
         const data = await fetchCities({ limit: 12 });
         setCities(data.length > 0 ? data : getFallbackCities());
       } catch (error) {
-        console.warn('Failed to load cities, using fallback:', error);
+        debugWarn('Failed to load cities, using fallback:', error);
         setCities(getFallbackCities());
       } finally {
         setLoading(false);
@@ -43,7 +46,7 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
   const CityCard: React.FC<{ city: City }> = ({ city }) => (
     <Link 
       href={`/${lang}/cities/${city.slug}`}
-      className="group bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-lg hover:border-blue-200 transition-all duration-200 relative overflow-hidden"
+      className="group bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-lg hover:border-blue-200 hover:ring-2 hover:ring-blue-300/60 transition-all duration-200 relative overflow-hidden"
     >
       {/* Shape decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -67,7 +70,9 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
         
         {city.business_count && (
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-            <span className="text-xs text-slate-500">Businesses</span>
+            <span className="text-xs text-slate-500">
+              {t.home.topCities.businessesLabel}
+            </span>
             <span className="text-sm font-medium text-blue-600">
               {city.business_count.toLocaleString()}
             </span>
@@ -104,10 +109,10 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-3xl font-bold text-slate-900 mb-4">
-          Top Cities by Business Activity
+          {t.home.topCities.title}
         </h2>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Explore the most vibrant business districts across Europe
+          {t.home.topCities.subtitle}
         </p>
       </div>
       
@@ -122,7 +127,7 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
           href={`/${lang}/cities`}
           className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
-          View All Cities
+          {t.home.topCities.viewAll}
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
           </svg>
@@ -133,3 +138,4 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
 };
 
 export default TopCities;
+

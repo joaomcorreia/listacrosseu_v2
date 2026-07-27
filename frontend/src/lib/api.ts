@@ -1,5 +1,7 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+import { debugWarn } from "@/lib/debug";
+import { PUBLIC_API_BASE_URL } from "@/lib/env.public";
+
+export const API_BASE_URL = PUBLIC_API_BASE_URL;
 
 export type HeroEffectSettings = {
   enabled: boolean;
@@ -109,7 +111,9 @@ export async function searchBusinesses(params: {
     searchParams.set("offset", String(params.offset));
   if (params.lang) searchParams.set("lang", params.lang);
 
-  const res = await fetch(`${API_BASE_URL}/api/businesses/search/?${searchParams.toString()}`);
+  const res = await fetch(
+    `${API_BASE_URL}/api/listings/businesses/search/?${searchParams.toString()}`
+  );
 
   if (!res.ok) {
     throw new Error(`Search request failed with status ${res.status}`);
@@ -120,19 +124,19 @@ export async function searchBusinesses(params: {
 }
 
 export async function fetchCountries() {
-  const res = await fetch(`${API_BASE_URL}/api/countries/`);
+  const res = await fetch(`${API_BASE_URL}/api/listings/countries/`);
   if (!res.ok) throw new Error("Failed to fetch countries");
   return (await res.json()) as { id: number; name: string; slug: string }[];
 }
 
 export async function fetchCategories() {
-  const res = await fetch(`${API_BASE_URL}/api/categories/`);
+  const res = await fetch(`${API_BASE_URL}/api/listings/categories/`);
   if (!res.ok) throw new Error("Failed to fetch categories");
   return (await res.json()) as { id: number; name: string; slug: string }[];
 }
 
 export async function fetchCities() {
-  const res = await fetch(`${API_BASE_URL}/api/cities/`);
+  const res = await fetch(`${API_BASE_URL}/api/listings/cities/`);
   if (!res.ok) throw new Error("Failed to fetch cities");
   return (await res.json()) as {
     id: number;
@@ -258,7 +262,7 @@ export async function fetchBlogPosts(params: {
   if (params.search) sp.set("search", params.search);
 
   const res = await fetch(
-    `${API_BASE_URL}/api/blog/posts/?${sp.toString()}`
+    `${API_BASE_URL}/api/blog/?${sp.toString()}`
   );
   if (!res.ok) {
     throw new Error(`Failed to fetch blog posts (${res.status})`);
@@ -267,25 +271,52 @@ export async function fetchBlogPosts(params: {
   
   // Safety guard: ensure we always return an array
   if (!Array.isArray(json)) {
-    console.warn("Blog posts API did not return an array, returning empty array instead");
+    debugWarn("Blog posts API did not return an array, returning empty array instead");
     return [];
   }
   
   return json as BlogPostListResponse;
 }
 
+export async function fetchBlogSlugById(
+  postId: number,
+  lang: string
+): Promise<string | null> {
+  const sp = new URLSearchParams();
+  sp.set("lang", lang);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/blog/?${sp.toString()}`);
+    if (!res.ok) {
+      return null;
+    }
+    const json = await res.json();
+    if (!Array.isArray(json)) {
+      return null;
+    }
+    const match = (json as BlogPostListResponse).find((item) => item.id === postId);
+    return match?.slug || null;
+  } catch (error) {
+    debugWarn("Failed to map blog slug by id.", error);
+    return null;
+  }
+}
+
 export async function fetchBlogPost(params: {
   slug: string;
   lang: string;
-}): Promise<BlogPostDetail> {
+}): Promise<BlogPostDetail | null> {
   const sp = new URLSearchParams();
   sp.set("lang", params.lang);
 
   const res = await fetch(
-    `${API_BASE_URL}/api/blog/posts/${encodeURIComponent(
+    `${API_BASE_URL}/api/blog/${encodeURIComponent(
       params.slug
     )}/?${sp.toString()}`
   );
+  if (res.status === 404) {
+    return null;
+  }
   if (!res.ok) {
     throw new Error(`Failed to fetch blog post (${res.status})`);
   }
@@ -301,7 +332,7 @@ export async function fetchBlogCategories(lang: string = "en"): Promise<BlogCate
   
   // Safety guard: ensure we always return an array
   if (!Array.isArray(json)) {
-    console.warn("Blog categories API did not return an array, returning empty array instead");
+    debugWarn("Blog categories API did not return an array, returning empty array instead");
     return [];
   }
   
@@ -316,7 +347,7 @@ export async function fetchBusinessDetail(params: {
   sp.set("lang", params.lang);
 
   const res = await fetch(
-    `${API_BASE_URL}/api/businesses/${encodeURIComponent(
+    `${API_BASE_URL}/api/listings/businesses/${encodeURIComponent(
       params.slug
     )}/?${sp.toString()}`
   );
@@ -391,3 +422,6 @@ export async function fetchPage(key: string, lang?: string): Promise<PageData> {
   
   return (await res.json()) as PageData;
 }
+
+
+

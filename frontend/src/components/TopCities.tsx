@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { PUBLIC_API_BASE_URL } from '@/lib/env.public';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = PUBLIC_API_BASE_URL;
 
 interface City {
   id: number;
@@ -49,7 +50,7 @@ async function fetchTopCities(): Promise<CountryWithCities[]> {
   return response.json();
 }
 
-export default function TopCities() {
+export default function TopCities({ settings: _settings }: { settings?: Record<string, unknown> } = {}) {
   const [data, setData] = useState<CountryWithCities[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,16 +85,6 @@ export default function TopCities() {
   return (
     <section className="py-16 bg-white">
       <div className="mx-auto max-w-7xl px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">
-            Top Cities by Business Activity
-          </h2>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Discover the most active European business cities across different countries.
-            Each country shows its top 3 cities by number of registered businesses.
-          </p>
-        </div>
-
         {/* Countries Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {data.map((item) => (
@@ -166,3 +157,5 @@ export default function TopCities() {
     </section>
   );
 }
+
+

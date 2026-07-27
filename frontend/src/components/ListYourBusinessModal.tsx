@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Building2, Mail, User, MapPin, Hash, Phone, Globe, Tag } from 'lucide-react';
 import Modal from './ui/Modal';
 import BusinessCard from './BusinessCard';
 import { fetchCategories, type Category } from '@/lib/api/listings';
+import { normalizeLang } from '@/lib/lang';
+import { useTranslations } from '@/i18n/translations';
 
 interface ListBusinessFormData {
   business_name: string;
@@ -31,6 +34,9 @@ export default function ListYourBusinessModal({
   onClose,
   onSubmit,
 }: ListYourBusinessModalProps) {
+  const params = useParams();
+  const lang = normalizeLang(String(params?.lang || 'en'));
+  const t = useTranslations(lang);
   const [formData, setFormData] = useState<ListBusinessFormData>({
     business_name: '',
     category_id: '',
@@ -63,9 +69,9 @@ export default function ListYourBusinessModal({
       console.error('Failed to load categories:', error);
       // Set fallback categories
       setCategories([
-        { id: 1, name: 'Restaurant', slug: 'restaurant' },
-        { id: 2, name: 'Retail', slug: 'retail' },
-        { id: 3, name: 'Professional Services', slug: 'professional-services' },
+        { id: 1, name: t.forms.listBusiness.fallbackCategories.restaurant, slug: 'restaurant' },
+        { id: 2, name: t.forms.listBusiness.fallbackCategories.retail, slug: 'retail' },
+        { id: 3, name: t.forms.listBusiness.fallbackCategories.professionalServices, slug: 'professional-services' },
       ]);
     }
   };
@@ -96,9 +102,9 @@ export default function ListYourBusinessModal({
     
     // Basic validation
     const newErrors: Partial<ListBusinessFormData> = {};
-    if (!formData.business_name.trim()) newErrors.business_name = 'Business name is required';
-    if (!formData.city.trim()) newErrors.city = 'City is required';
-    if (!formData.country.trim()) newErrors.country = 'Country is required';
+    if (!formData.business_name.trim()) newErrors.business_name = t.forms.listBusiness.errors.businessNameRequired;
+    if (!formData.city.trim()) newErrors.city = t.forms.listBusiness.errors.cityRequired;
+    if (!formData.country.trim()) newErrors.country = t.forms.listBusiness.errors.countryRequired;
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -113,7 +119,7 @@ export default function ListYourBusinessModal({
         onClose();
       } catch (apiError) {
         // If API fails, show demo success message
-        alert('Submitted (demo mode) - Thank you for your listing!');
+        alert(t.forms.listBusiness.messages.submitDemoSuccess);
         onClose();
       }
     } catch (error) {
@@ -145,18 +151,18 @@ export default function ListYourBusinessModal({
   // Create preview business object
   const previewBusiness = {
     id: 0,
-    name: formData.business_name || 'Your Business Name',
+    name: formData.business_name || t.forms.listBusiness.placeholders.businessName,
     slug: 'preview',
     tier: formData.tier,
-    address_line1: formData.address || 'Business Address',
-    postal_code: formData.postal_code || 'Post Code',
+    address_line1: formData.address || t.forms.listBusiness.placeholders.address,
+    postal_code: formData.postal_code || t.forms.listBusiness.fields.postalCode,
     city: formData.city ? {
       id: 0,
       name: formData.city,
       slug: 'preview-city',
       country: {
         id: 0,
-        name: formData.country || 'Country',
+        name: formData.country || t.forms.listBusiness.fields.country,
         slug: 'preview-country',
       }
     } : undefined,
@@ -184,7 +190,7 @@ export default function ListYourBusinessModal({
     <Modal 
       isOpen={isOpen} 
       onClose={onClose}
-      title="List Your Business"
+      title={t.forms.listBusiness.title}
       maxWidth="6xl"
     >
       <div className={`p-6 border-t-4 ${getBorderColor(formData.tier)}`}>
@@ -192,12 +198,12 @@ export default function ListYourBusinessModal({
           {/* Live Preview Column */}
           <div className="order-2 lg:order-1">
             <div className="sticky top-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Live Preview</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">{t.forms.listBusiness.previewTitle}</h3>
               
               {/* Tier Selector */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Preview Tier
+                  {t.forms.listBusiness.previewTier}
                 </label>
                 <div className="flex space-x-2">
                   {(['free', 'claimed', 'premium'] as const).map((tier) => (
@@ -213,7 +219,7 @@ export default function ListYourBusinessModal({
                           : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                       }`}
                     >
-                      {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                      {t.forms.listBusiness.tiers[tier === 'claimed' ? 'standard' : tier]}
                     </button>
                   ))}
                 </div>
@@ -226,28 +232,28 @@ export default function ListYourBusinessModal({
               
               {/* Pricing Table */}
               <div className="mt-6 bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">Pricing</h4>
+                <h4 className="font-medium text-gray-900 mb-3">{t.forms.listBusiness.pricingTitle}</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="flex items-center">
                       <div className="w-3 h-3 bg-green-500 rounded mr-2"></div>
-                      Free
+                      {t.forms.listBusiness.tiers.free}
                     </span>
-                    <span className="font-medium">Free</span>
+                    <span className="font-medium">{t.forms.listBusiness.prices.free}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="flex items-center">
                       <div className="w-3 h-3 bg-blue-500 rounded mr-2"></div>
-                      Claimed
+                      {t.forms.listBusiness.tiers.standard}
                     </span>
-                    <span className="font-medium">Free</span>
+                    <span className="font-medium">{t.forms.listBusiness.prices.standard}{t.forms.claimForm.premiumBox.priceSuffix}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="flex items-center">
                       <div className="w-3 h-3 bg-orange-500 rounded mr-2"></div>
-                      Premium
+                      {t.forms.listBusiness.tiers.premium}
                     </span>
-                    <span className="font-medium">€9/month</span>
+                    <span className="font-medium">{t.forms.listBusiness.prices.premium}{t.forms.claimForm.premiumBox.priceSuffix}</span>
                   </div>
                 </div>
               </div>
@@ -260,14 +266,14 @@ export default function ListYourBusinessModal({
               {/* Basic Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-900 border-b pb-2">
-                  Basic Information
+                  {t.forms.listBusiness.basicInfoTitle}
                 </h3>
                 
                 {/* Business Name */}
                 <div>
                   <label htmlFor="business_name" className="block text-sm font-medium text-gray-700 mb-1">
                     <Building2 className="w-4 h-4 inline mr-1" />
-                    Business Name *
+                    {t.forms.listBusiness.fields.businessName} *
                   </label>
                   <input
                     type="text"
@@ -277,7 +283,7 @@ export default function ListYourBusinessModal({
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${ 
                       errors.business_name ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    placeholder="Enter your business name"
+                    placeholder={t.forms.listBusiness.placeholders.businessName}
                     disabled={isSubmitting}
                   />
                   {errors.business_name && <p className="text-red-500 text-sm mt-1">{errors.business_name}</p>}
@@ -287,16 +293,16 @@ export default function ListYourBusinessModal({
                 <div>
                   <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
                     <Tag className="w-4 h-4 inline mr-1" />
-                    Category
+                    {t.forms.listBusiness.fields.category}
                   </label>
                   <select
                     id="category"
                     value={formData.category_id}
                     onChange={(e) => handleChange('category_id', parseInt(e.target.value) || '')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border text-slate-900 placeholder:text-slate-400 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     disabled={isSubmitting}
                   >
-                    <option value="">Select a category...</option>
+                    <option value="">{t.forms.listBusiness.placeholders.category}</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
@@ -309,7 +315,7 @@ export default function ListYourBusinessModal({
               {/* Location Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-900 border-b pb-2">
-                  Location
+                  {t.forms.listBusiness.locationTitle}
                 </h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -317,7 +323,7 @@ export default function ListYourBusinessModal({
                   <div>
                     <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
                       <MapPin className="w-4 h-4 inline mr-1" />
-                      City *
+                      {t.forms.listBusiness.fields.city} *
                     </label>
                     <input
                       type="text"
@@ -327,7 +333,7 @@ export default function ListYourBusinessModal({
                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${ 
                         errors.city ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Enter city"
+                      placeholder={t.forms.listBusiness.placeholders.city}
                       disabled={isSubmitting}
                     />
                     {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
@@ -336,7 +342,7 @@ export default function ListYourBusinessModal({
                   {/* Country */}
                   <div>
                     <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
-                      Country *
+                      {t.forms.listBusiness.fields.country} *
                     </label>
                     <input
                       type="text"
@@ -346,7 +352,7 @@ export default function ListYourBusinessModal({
                       className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${ 
                         errors.country ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Enter country"
+                      placeholder={t.forms.listBusiness.placeholders.country}
                       disabled={isSubmitting}
                     />
                     {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country}</p>}
@@ -356,15 +362,15 @@ export default function ListYourBusinessModal({
                 {/* Address */}
                 <div>
                   <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
+                    {t.forms.listBusiness.fields.address}
                   </label>
                   <textarea
                     id="address"
                     rows={2}
                     value={formData.address}
                     onChange={(e) => handleChange('address', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter business address"
+                    className="w-full px-3 py-2 border text-slate-900 placeholder:text-slate-400 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={t.forms.listBusiness.placeholders.address}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -373,15 +379,15 @@ export default function ListYourBusinessModal({
                 <div className="sm:max-w-xs">
                   <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700 mb-1">
                     <Hash className="w-4 h-4 inline mr-1" />
-                    Post Code
+                    {t.forms.listBusiness.fields.postalCode}
                   </label>
                   <input
                     type="text"
                     id="postal_code"
                     value={formData.postal_code}
                     onChange={(e) => handleChange('postal_code', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter post code"
+                    className="w-full px-3 py-2 border text-slate-900 placeholder:text-slate-400 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={t.forms.listBusiness.placeholders.postalCode}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -390,7 +396,7 @@ export default function ListYourBusinessModal({
               {/* Contact Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-900 border-b pb-2">
-                  Contact Information (Optional)
+                  {t.forms.listBusiness.contactTitle}
                 </h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -398,15 +404,15 @@ export default function ListYourBusinessModal({
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                       <Phone className="w-4 h-4 inline mr-1" />
-                      Phone
+                      {t.forms.listBusiness.fields.phone}
                     </label>
                     <input
                       type="tel"
                       id="phone"
                       value={formData.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter phone number"
+                      className="w-full px-3 py-2 border text-slate-900 placeholder:text-slate-400 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={t.forms.listBusiness.placeholders.phone}
                       disabled={isSubmitting}
                     />
                   </div>
@@ -415,15 +421,15 @@ export default function ListYourBusinessModal({
                   <div>
                     <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
                       <Globe className="w-4 h-4 inline mr-1" />
-                      Website
+                      {t.forms.listBusiness.fields.website}
                     </label>
                     <input
                       type="url"
                       id="website"
                       value={formData.website}
                       onChange={(e) => handleChange('website', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="https://www.example.com"
+                      className="w-full px-3 py-2 border text-slate-900 placeholder:text-slate-400 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={t.forms.listBusiness.placeholders.website}
                       disabled={isSubmitting}
                     />
                   </div>
@@ -432,18 +438,18 @@ export default function ListYourBusinessModal({
                 {/* Keywords */}
                 <div>
                   <label htmlFor="keywords" className="block text-sm font-medium text-gray-700 mb-1">
-                    Keywords (3 max, comma-separated)
+                    {t.forms.listBusiness.fields.keywords}
                   </label>
                   <input
                     type="text"
                     id="keywords"
                     value={formData.keywords}
                     onChange={(e) => handleChange('keywords', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="restaurant, italian, pizza"
+                    className="w-full px-3 py-2 border text-slate-900 placeholder:text-slate-400 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={t.forms.listBusiness.placeholders.keywords}
                     disabled={isSubmitting}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Help customers find you with relevant keywords</p>
+                  <p className="text-xs text-gray-500 mt-1">{t.forms.listBusiness.keywordsHelp}</p>
                 </div>
               </div>
 
@@ -455,7 +461,7 @@ export default function ListYourBusinessModal({
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
                   disabled={isSubmitting}
                 >
-                  Cancel
+                  {t.forms.listBusiness.actions.cancel}
                 </button>
                 <button
                   type="submit"
@@ -466,7 +472,7 @@ export default function ListYourBusinessModal({
                   }`}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Submitting...' : 'List Business (Demo)'}
+                  {isSubmitting ? t.forms.listBusiness.actions.submitting : t.forms.listBusiness.actions.submit}
                 </button>
               </div>
             </form>
@@ -476,3 +482,8 @@ export default function ListYourBusinessModal({
     </Modal>
   );
 }
+
+
+
+
+

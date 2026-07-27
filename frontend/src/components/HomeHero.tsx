@@ -2,115 +2,207 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import SnowOverlay from "@/components/effects/SnowOverlay";
 import { normalizeLang } from "@/lib/lang";
 import { useParams } from "next/navigation";
-import {
-  fetchHeroEffectSettings,
-  fetchUiText,
-  type HeroEffectSettings,
-  type UiTextResponse,
-} from "@/lib/api";
-import { useRouter, usePathname } from "next/navigation";
+import SnowOverlay from "@/components/effects/SnowOverlay";
+import { useTranslations } from "@/i18n/translations";
 
-const defaultSettings: HeroEffectSettings = {
-  enabled: true,
-  opacity: 0.8,
-  intensity: "high",
-  updated_at: "",
+type Slide = {
+  title: string;
+  subtitle: string;
+  animation: "top" | "bottom" | "left" | "right" | "fade";
 };
 
-const defaultUiText: UiTextResponse = {
-  group: 0,
-  language: "en",
-  data: {},
-  updated_at: "",
-};
+const slides: Slide[] = [
+  {
+    title: "slide_1",
+    subtitle: "slide_1_subtitle",
+    animation: "top",
+  },
+  {
+    title: "slide_2",
+    subtitle: "slide_2_subtitle",
+    animation: "left",
+  },
+  {
+    title: "slide_3",
+    subtitle: "slide_3_subtitle",
+    animation: "bottom",
+  },
+  {
+    title: "slide_4",
+    subtitle: "slide_4_subtitle",
+    animation: "right",
+  },
+];
+
+function getInactiveTransform(animation: Slide["animation"]) {
+  switch (animation) {
+    case "top":
+      return "-translate-y-10";
+    case "bottom":
+      return "translate-y-10";
+    case "left":
+      return "-translate-x-12";
+    case "right":
+      return "translate-x-12";
+    case "fade":
+    default:
+      return "";
+  }
+}
 
 export default function HomeHero() {
   const params = useParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const lang = normalizeLang(String(params?.lang || "en"));
-
-  const [settings, setSettings] = useState<HeroEffectSettings>(defaultSettings);
-  const [uiText, setUiText] = useState<UiTextResponse>(defaultUiText);
-
-  // Debug log to identify this component
-  console.log("HERO COMPONENT:", "src/components/HomeHero.tsx");
+  const t = useTranslations(lang);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const timer = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-    async function loadSettingsAndText() {
-      try {
-        const [effects, text] = await Promise.all([
-          fetchHeroEffectSettings(),
-          fetchUiText("home", lang).catch(() => defaultUiText), // fallback if no translations
-        ]);
-        if (!cancelled) {
-          setSettings((prev) => ({ ...prev, ...effects }));
-          setUiText(text);
-        }
-      } catch (err) {
-        console.error("Failed to load hero settings or text", err);
-      }
-    }
+  function goToSlide(nextIndex: number) {
+    const total = slides.length;
+    const normalized = ((nextIndex % total) + total) % total;
+    setActiveIndex(normalized);
+  }
 
-    loadSettingsAndText();
-    return () => {
-      cancelled = true;
-    };
-  }, [lang]);
-
-  const effectiveOpacity = Math.min(Math.max(settings.opacity, 0), 1);
-
-  const title =
-    uiText.data["hero_title"] ||
-    "Connect with trusted small & micro businesses across Europe.";
-
-  const subtitle =
-    uiText.data["hero_subtitle"] ||
-    "ListAcrossEU helps you discover verified local businesses in every EU country — from solo professionals to small teams.";
+  const slideCopy = [
+    { title: t.hero.title, subtitle: t.hero.verifiedBusinesses },
+    { title: t.hero.connectSmes, subtitle: t.hero.connectSmesSubtitle },
+    { title: t.hero.listBusiness, subtitle: t.hero.listBusinessSubtitle },
+    { title: t.hero.upgradePremium, subtitle: t.hero.upgradePremiumSubtitle },
+  ];
 
   return (
-    <section className="relative isolate -mt-20 pt-[94px] overflow-hidden bg-gradient-to-b from-[#0a3cff] to-[#00144f] text-white min-h-[520px] md:min-h-[620px]">
-      {/* Christmas Snow Overlay */}
+    <section className="relative isolate -mt-24 pt-24 min-h-[80vh] md:min-h-[90vh] overflow-hidden bg-gradient-to-br from-purple-900 via-blue-900 to-purple-800 text-white">
+      {/* EU Map Background Overlay */}
+      <div
+        className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none"
+        style={{
+          backgroundImage: "url(/images/eu-map.png)",
+          backgroundSize: "contain",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+        }}
+      />
       <SnowOverlay />
-      
-      {/* Decorative shapes instead of images */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-blue-400/20 rounded-full blur-xl" />
-        <div className="absolute top-40 right-20 w-24 h-24 bg-purple-400/30 rounded-full blur-lg" />
-        <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-indigo-400/15 rounded-full blur-2xl" />
+
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-24 -right-12 h-64 w-64 rounded-full bg-purple-500/20 blur-3xl" />
+        <div className="absolute top-24 left-10 h-40 w-40 rounded-full bg-blue-400/20 blur-2xl" />
+        <div className="absolute bottom-10 right-1/4 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto flex min-h-[420px] md:min-h-[520px] max-w-7xl flex-col justify-center px-4 py-16">
-        <div className="max-w-xl">
-          <p className="text-xs uppercase tracking-[0.25em] text-blue-200">
-            European business directory
-          </p>
-          {/* Debug marker to identify this hero */}
-          <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] px-1 z-50">HERO-DEBUG-A</div>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight md:text-4xl">
-            {title}
-          </h1>
-          <p className="mt-4 text-sm text-blue-100 md:text-base">
-            {subtitle}
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="relative mx-auto flex min-h-[70vh] max-w-7xl flex-col justify-center px-4 py-16">
+        <div className="relative max-w-3xl">
+          <div className="relative min-h-[180px] sm:min-h-[200px]">
+            {slides.map((slide, index) => {
+              const isActive = index === activeIndex;
+              const inactiveTransform = getInactiveTransform(slide.animation);
+              const copy = slideCopy[index];
+              return (
+                <div
+                  key={slide.title}
+                  className={[
+                    "absolute inset-0 transition-all duration-700 ease-out",
+                    isActive
+                      ? "opacity-100 translate-x-0 translate-y-0"
+                      : `opacity-0 ${inactiveTransform}`,
+                  ].join(" ")}
+                >
+                  <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
+                    {copy.title}
+                  </h1>
+                  <p className="mt-4 text-base text-blue-100 md:text-lg">
+                    {copy.subtitle}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-4">
             <Link
               href={`/${lang}/search`}
-              className="inline-flex items-center rounded-full bg-amber-400 px-5 py-2 text-sm font-medium text-blue-900 shadow hover:bg-amber-300"
+              className="inline-flex items-center rounded-full bg-amber-400 px-6 py-2 text-sm font-semibold text-slate-900 shadow hover:bg-amber-300"
             >
-              Browse directory
+              {t.hero.exploreBusiness}
             </Link>
-            <span className="text-xs text-blue-200">
-              Search by country, city, category, or micro business focus.
-            </span>
+            <Link
+              href={`/${lang}/list-your-business`}
+              className="inline-flex items-center rounded-full bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow hover:bg-purple-500"
+            >
+              {t.nav.listYourBusiness}
+            </Link>
+          </div>
+
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => goToSlide(activeIndex - 1)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/30 text-white hover:bg-white/10"
+              aria-label={t.hero.prevSlideLabel}
+            >
+              &#8592;
+            </button>
+            <button
+              type="button"
+              onClick={() => goToSlide(activeIndex + 1)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/30 text-white hover:bg-white/10"
+              aria-label={t.hero.nextSlideLabel}
+            >
+              &#8594;
+            </button>
+
+            <div className="ml-4 flex items-center gap-2">
+              {slides.map((_, index) => (
+                <button
+                  key={`dot-${index}`}
+                  type="button"
+                  onClick={() => goToSlide(index)}
+                  className={[
+                    "h-2.5 w-2.5 rounded-full transition-all",
+                    index === activeIndex ? "bg-amber-400" : "bg-white/40",
+                  ].join(" ")}
+                  aria-label={t.hero.goToSlideLabel.replace("{index}", String(index + 1))}
+                />
+              ))}
+            </div>
           </div>
         </div>
+
+        <div className="mt-10 flex flex-wrap gap-3">
+          <span className="rounded-full bg-amber-400/20 px-4 py-2 text-sm font-semibold text-amber-100">
+            {t.hero.stats.spain}
+          </span>
+          <span className="rounded-full bg-blue-400/20 px-4 py-2 text-sm font-semibold text-blue-100">
+            {t.hero.stats.france}
+          </span>
+          <span className="rounded-full bg-emerald-400/20 px-4 py-2 text-sm font-semibold text-emerald-100">
+            {t.hero.stats.germany}
+          </span>
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes flag-scroll {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+        .animate-flag-scroll {
+          animation: flag-scroll 24s linear infinite;
+          width: max-content;
+        }
+      `}</style>
     </section>
   );
 }

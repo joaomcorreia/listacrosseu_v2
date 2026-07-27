@@ -3,20 +3,23 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { normalizeLang } from "@/lib/lang";
+import { useTranslations } from "@/i18n/translations";
 import { fetchCountriesWithStats, type CountryWithStats } from "@/lib/api/listings";
 import CountryExplorerCard from "@/components/CountryExplorerCard";
 import FeaturedCountrySection from "@/components/FeaturedCountrySection";
 import CountryExplorerStats from "@/components/CountryExplorerStats";
+import { debugLog } from "@/lib/debug";
 
 export default function CountriesPageClient() {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || "en"));
+  const t = useTranslations(lang);
   
   const [countries, setCountries] = useState<CountryWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  console.log("🚀 CountriesPageClient (Country Explorer) loaded, lang:", lang);
+  debugLog("Debug: CountriesPageClient (Country Explorer) loaded, lang:", lang);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +37,7 @@ export default function CountriesPageClient() {
       } catch (err) {
         console.error("Error loading countries:", err);
         if (!cancelled) {
-          setError("Failed to load countries. Please try again.");
+          setError(t.directory.countries.errorLoad);
         }
       } finally {
         if (!cancelled) {
@@ -47,7 +50,7 @@ export default function CountriesPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [lang]);
+  }, [lang, t]);
 
   if (loading) {
     return (
@@ -58,7 +61,7 @@ export default function CountriesPageClient() {
         {/* Country Grid Skeleton */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-6">
-            Explore by Country
+            {t.directory.countries.exploreTitle}
           </h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
@@ -109,13 +112,13 @@ export default function CountriesPageClient() {
             />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-medium text-red-900">Error</h3>
+        <h3 className="mt-4 text-lg font-medium text-red-900">{t.directory.countries.errorTitle}</h3>
         <p className="mt-2 text-red-600">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          Try Again
+          {t.directory.common.tryAgain}
         </button>
       </div>
     );
@@ -134,7 +137,7 @@ export default function CountriesPageClient() {
           {/* Development debug info */}
           {process.env.NODE_ENV === 'development' && (
             <div className="text-xs bg-yellow-50 border border-yellow-200 p-2 rounded">
-              <strong>🐛 Debug:</strong> {countries.length} countries with stats loaded
+              <strong>{t.directory.common.debugLabel}:</strong> {countries.length} countries with stats loaded
             </div>
           )}
 
@@ -148,10 +151,10 @@ export default function CountriesPageClient() {
             <div>
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                  Explore by Country
+                  {t.directory.countries.exploreTitle}
                 </h2>
                 <p className="text-slate-600">
-                  Discover businesses and opportunities across European countries.
+                  {t.directory.countries.exploreSubtitle}
                 </p>
               </div>
               
@@ -186,13 +189,14 @@ export default function CountriesPageClient() {
                 </svg>
               </div>
               <h3 className="mt-4 text-lg font-medium text-slate-900">
-                No countries available
+                {t.directory.countries.noCountriesTitle}
               </h3>
               <p className="mt-2 text-slate-600">
-                We're setting up our Country Explorer. Please check back soon!
+                {t.directory.countries.noCountriesBody}
               </p>
             </div>
           )}
     </div>
   );
 }
+

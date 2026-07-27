@@ -38,6 +38,25 @@ class BusinessSitemap(Sitemap):
         return obj.get_sitemap_priority()
 
 
+class BusinessSlugSitemap(Sitemap):
+    """
+    Sitemap for /{lang}/business/{slug} URLs.
+    Uses English locale by default.
+    """
+    changefreq = "monthly"
+    priority = 0.4
+    protocol = "https"
+
+    def items(self):
+        return Business.objects.all()
+
+    def location(self, obj):
+        return f"/en/business/{obj.slug}"
+
+    def lastmod(self, obj):
+        return obj.created_at
+
+
 class StaticPageSitemap(Sitemap):
     """Sitemap for static pages."""
     changefreq = "monthly"
@@ -61,5 +80,6 @@ class StaticPageSitemap(Sitemap):
 # Sitemap index configuration
 sitemaps = {
     'businesses': BusinessSitemap,
+    'business-slugs': BusinessSlugSitemap,
     'static': StaticPageSitemap,
 }

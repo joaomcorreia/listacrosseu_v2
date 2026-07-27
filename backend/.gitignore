@@ -20,6 +20,9 @@ pip-delete-this-directory.txt
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+db.sqlite3-wal
+media/
+staticfiles/
 
 # VS Code
 .vscode/
@@ -28,3 +31,12 @@ db.sqlite3-journal
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+
+# Local secrets / scratch files
+OPENAI_API_KEY
+Node.js
+python
+set
+cd

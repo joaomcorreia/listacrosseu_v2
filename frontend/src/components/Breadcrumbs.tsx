@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { normalizeLang } from "@/lib/lang";
+import { translations, useTranslations } from "@/i18n/translations";
 
 interface BreadcrumbItem {
   label: string;
@@ -22,10 +23,13 @@ export default function Breadcrumbs({
 }: BreadcrumbsProps) {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || "en"));
+  const t = useTranslations(lang);
+  const fallbackBreadcrumbs = translations.en.breadcrumbs;
+  const breadcrumbs = t.breadcrumbs ?? fallbackBreadcrumbs ?? { home: "Home" };
   
   // Use new items format if provided, otherwise fall back to legacy current prop
   const breadcrumbItems = items || [
-    { label: 'Home', href: `/${lang}` },
+    { label: breadcrumbs.home, href: `/${lang}` },
     { label: current || '' }
   ];
 

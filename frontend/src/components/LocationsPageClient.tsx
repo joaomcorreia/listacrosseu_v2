@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { normalizeLang } from "@/lib/lang";
+import { useTranslations } from "@/i18n/translations";
 import {
   fetchCountries,
   fetchCities,
@@ -14,11 +15,12 @@ import {
   type Town,
   type BusinessSearchResult,
 } from "@/lib/api/listings";
-import BusinessList from "@/components/BusinessList";
+import BusinessCard from "@/components/BusinessCard";
 
 export default function LocationsPageClient() {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || "en"));
+  const t = useTranslations(lang);
   
   const [towns, setTowns] = useState<Town[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -28,6 +30,13 @@ export default function LocationsPageClient() {
   const [recentBusinesses, setRecentBusinesses] = useState<BusinessSearchResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const format = (template: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [key, value]) =>
+        result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
+      template,
+    );
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +74,7 @@ export default function LocationsPageClient() {
       } catch (err) {
         console.error(err);
         if (!cancelled) {
-          setError("Failed to load locations data. Please try again.");
+          setError(t.directory.locations.errorLoad);
         }
       } finally {
         if (!cancelled) {
@@ -78,7 +87,7 @@ export default function LocationsPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCountry, selectedCity]);
+  }, [selectedCountry, selectedCity, lang]);
 
   const handleCountryFilter = (countrySlug: string) => {
     setSelectedCountry(countrySlug);
@@ -95,7 +104,7 @@ export default function LocationsPageClient() {
         {/* Country Filter Skeleton */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Select Country
+            {t.directory.locations.selectCountryTitle}
           </h2>
           <div className="flex flex-wrap gap-2">
             {[...Array(6)].map((_, i) => (
@@ -108,7 +117,7 @@ export default function LocationsPageClient() {
         {selectedCountry && (
           <div>
             <h2 className="text-2xl font-bold text-slate-900 mb-4">
-              Towns & Locations
+              {t.directory.locations.townsTitle}
             </h2>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {[...Array(12)].map((_, i) => (
@@ -144,27 +153,35 @@ export default function LocationsPageClient() {
             />
           </svg>
         </div>
-        <h3 className="mt-4 text-lg font-medium text-red-900">Error</h3>
+        <h3 className="mt-4 text-lg font-medium text-red-900">{t.directory.locations.errorTitle}</h3>
         <p className="mt-2 text-red-600">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          Try Again
+          {t.directory.common.tryAgain}
         </button>
       </div>
     );
   }
+
+  const tierOrder: Record<string, number> = { premium: 0, claimed: 1, free: 2 };
+  const sortedRecentBusinesses = recentBusinesses
+    ? [...recentBusinesses.results].sort(
+        (a: any, b: any) =>
+          (tierOrder[a.tier ?? "free"] ?? 2) - (tierOrder[b.tier ?? "free"] ?? 2)
+      )
+    : [];
 
   return (
     <div className="space-y-12">
       {/* Country Filter */}
       <div>
         <h2 className="text-2xl font-bold text-slate-900 mb-4">
-          Select Country
+          {t.directory.locations.selectCountryTitle}
         </h2>
         <p className="text-slate-600 mb-6">
-          Choose a country to view towns and locations with businesses.
+          {t.directory.locations.selectCountrySubtitle}
         </p>
         <div className="flex flex-wrap gap-2">
           {countries.map((country) => (
@@ -187,7 +204,7 @@ export default function LocationsPageClient() {
       {selectedCountry && cities.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-slate-900 mb-3">
-            Filter by City (Optional)
+            {t.directory.locations.filterByCity}
           </h3>
           <div className="flex flex-wrap gap-2">
             <button
@@ -198,7 +215,7 @@ export default function LocationsPageClient() {
                   : "bg-slate-50 text-slate-600 hover:bg-slate-100"
               }`}
             >
-              All Cities
+              {t.directory.locations.allCities}
             </button>
             {cities.map((city) => (
               <button
@@ -223,10 +240,10 @@ export default function LocationsPageClient() {
           {towns.length > 0 ? (
             <div>
               <h3 className="text-xl font-semibold text-slate-900 mb-6">
-                Towns & Locations
+                {t.directory.locations.townsTitle}
                 {selectedCity && (
                   <span className="text-base font-normal text-slate-600 ml-2">
-                    in {cities.find(c => c.slug === selectedCity)?.name}
+                    {format(t.directory.locations.townsIn, { city: cities.find(c => c.slug === selectedCity)?.name || "" })}
                   </span>
                 )}
               </h3>
@@ -234,7 +251,7 @@ export default function LocationsPageClient() {
                 {towns.map((town, index) => (
                   <Link
                     key={`${town.name}-${index}`}
-                    href={`/${lang}/search?country=${selectedCountry}&town=${encodeURIComponent(town.name)}`}
+                    href={`/${lang}/places/${town.slug}`}
                     className="group rounded-lg bg-white p-4 shadow-sm hover:shadow-md transition-all hover:scale-105"
                   >
                     <div className="flex items-center justify-between">
@@ -277,12 +294,12 @@ export default function LocationsPageClient() {
                 </svg>
               </div>
               <h3 className="mt-4 text-lg font-medium text-slate-900">
-                No locations found
+                {t.directory.locations.noLocationsTitle}
               </h3>
               <p className="mt-2 text-slate-600">
                 {selectedCity 
-                  ? "No towns found for the selected filters." 
-                  : `No towns with businesses found in ${countries.find(c => c.slug === selectedCountry)?.name || selectedCountry}.`
+                  ? t.directory.locations.noLocationsSelected 
+                  : format(t.directory.locations.noLocationsInCountry, { country: countries.find(c => c.slug === selectedCountry)?.name || selectedCountry })
                 }
               </p>
               {selectedCity && (
@@ -290,7 +307,7 @@ export default function LocationsPageClient() {
                   onClick={() => handleCityFilter("")}
                   className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                 >
-                  Show all towns
+                  {t.directory.locations.showAllTowns}
                 </button>
               )}
             </div>
@@ -317,10 +334,10 @@ export default function LocationsPageClient() {
             </svg>
           </div>
           <h3 className="mt-4 text-lg font-medium text-slate-900">
-            Select a Country
+            {t.directory.locations.selectCountryEmptyTitle}
           </h3>
           <p className="mt-2 text-slate-600">
-            Choose a country above to explore towns and locations with business listings.
+            {t.directory.locations.selectCountryEmptyBody}
           </p>
         </div>
       )}
@@ -331,23 +348,32 @@ export default function LocationsPageClient() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">
-                Recent Listings
+                {t.directory.locations.recentListingsTitle}
               </h2>
               <p className="text-slate-600">
-                Latest businesses added to our directory.
+                {t.directory.locations.recentListingsSubtitle}
               </p>
             </div>
             <Link
               href={`/${lang}/search`}
               className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
             >
-              View all
+              {t.directory.locations.viewAll}
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
             </Link>
           </div>
-          <BusinessList businesses={recentBusinesses.results} />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {sortedRecentBusinesses.map((business) => (
+              <div
+                key={business.id}
+                className={business.tier === "premium" ? "col-span-2" : ""}
+              >
+                <BusinessCard business={business as any} lang={lang} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

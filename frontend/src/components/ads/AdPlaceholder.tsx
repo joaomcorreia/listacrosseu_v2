@@ -26,16 +26,21 @@ export const AdPlaceholder: React.FC<AdPlaceholderProps> = ({
     }
   };
 
+  const variantClasses =
+    variant === 'banner'
+      ? 'border border-slate-200 bg-white shadow-sm'
+      : 'border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100';
+
   const defaultLabel = label || 'ListAcross EU Ad Slot';
 
   return (
     <div
       className={`
         ${getVariantClasses()}
-        border-2 border-dashed border-slate-300 
-        bg-gradient-to-br from-slate-50 to-blue-50/30
-        rounded-lg 
-        flex items-center justify-center 
+        ${variantClasses}
+        rounded-lg
+        flex items-center justify-center
+        text-center
         relative
         hover:border-blue-300
         hover:shadow-md

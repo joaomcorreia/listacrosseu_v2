@@ -1,37 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
+import { debugLog } from "@/lib/debug";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const url = `${API_BASE_URL}/api/listings/countries/stats/`;
-    
-    console.log("🔥 Country Stats API Proxy URL:", url);
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
+    const url = `${INTERNAL_BACKEND_URL}/api/listings/countries/stats/`;
+    debugLog("Country Stats API Proxy URL:", url);
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
     if (!response.ok) {
-      console.error("🔥 Country Stats API Error:", response.status, response.statusText);
       return NextResponse.json(
-        { error: 'Failed to fetch country stats' },
-        { status: response.status }
+        { error: "Failed to fetch country stats" },
+        { status: response.status },
       );
     }
-
-    const data = await response.json();
-    console.log("🔥 Country Stats API Success:", data.length, "countries with stats");
-    
-    return NextResponse.json(data);
+    return NextResponse.json(await response.json());
   } catch (error) {
-    console.error("🔥 Country Stats API Exception:", error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error("Country Stats API Exception:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
