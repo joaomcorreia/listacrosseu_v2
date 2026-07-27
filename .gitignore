@@ -11,6 +11,7 @@ frontend/src/i18n.zip
 frontend/extractor_log.txt
 frontend/Node.js
 frontend/Node_js_backup
+frontend/src/i18n/Node.js
 
 # Backend (Python/Django)
 backend/__pycache__/
