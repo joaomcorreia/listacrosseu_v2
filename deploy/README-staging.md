@@ -13,6 +13,7 @@ Build commands
 - Backend deps: `pip install -r backend/requirements.txt`
 - Frontend deps: `npm ci` inside `frontend`
 - Frontend build: `npm run build` inside `frontend`
+- Production frontend build ownership: after each production build, run `sudo chown -R www-data:www-data /var/www/listacross.eu/app/frontend/.next`
 - Static collection: `py -3 manage.py collectstatic --noinput` with `DJANGO_SETTINGS_MODULE=config.settings.production`
 
 Runtime commands
@@ -49,3 +50,4 @@ Notes
 - If switching to PostgreSQL later, copy data through a separate migration plan; this checkpoint does not do that work.
 - Keep `ENABLE_VISUAL_HOMEPAGE_EDITOR=0` on staging unless explicitly needed.
 - Keep `EXPOSE_PUBLIC_DEBUG_ENDPOINTS=0` on staging.
+- The production frontend service runs as `www-data`. Runtime-writable Next.js build artifacts under `/var/www/listacross.eu/app/frontend/.next` must stay owned by `www-data:www-data`.

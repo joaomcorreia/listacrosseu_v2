@@ -36,4 +36,6 @@
 - Never commit secrets to git
 - Separate .env files per environment
 
-*Placeholder – to be filled as we implement each phase.*
+**Deferred Review Items**:
+- Homepage copy currently says `6,352 verified businesses`, but the production database contains 8,114 `listings_business` rows; the displayed value is hard-coded in `frontend/src/i18n/translations.ts`.
+- French pages currently return `<html lang="en">` instead of the correct document language.
