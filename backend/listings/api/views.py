@@ -3,7 +3,7 @@ import uuid
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db.models import Q, Count
+from django.db.models import Case, Count, IntegerField, Q, When
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -238,82 +238,6 @@ class BusinessSearchView(APIView):
                 | Q(category__name__iexact=category)
             )
 
-        # Visibility rules
-        country_code = None
-        if town:
-            town_obj = Town.objects.filter(
-                Q(slug__iexact=town) | Q(name__iexact=town)
-            ).select_related("city__country").first()
-            if town_obj and town_obj.city and town_obj.city.country and town_obj.city.country.code:
-                country_code = town_obj.city.country.code.upper()
-        elif city:
-            city_obj = City.objects.filter(
-                Q(slug__iexact=city) | Q(name__iexact=city)
-            ).select_related("country").first()
-            if city_obj and city_obj.country and city_obj.country.code:
-                country_code = city_obj.country.code.upper()
-        elif country:
-            if country_obj and country_obj.code:
-                country_code = country_obj.code.upper()
-            elif len(country) == 2:
-                country_code = country.upper()
-
-        if town:
-            if country_code:
-                qs = qs.filter(
-                    Q(tier__in=["free", "claimed"])
-                    | Q(
-                        tier="premium",
-                        visibility_scope="eu",
-                    )
-                    | Q(
-                        tier="premium",
-                        visibility_scope="country",
-                        visibility_country__iexact=country_code,
-                    )
-                )
-            else:
-                qs = qs.filter(
-                    Q(tier__in=["free", "claimed"])
-                    | Q(tier="premium", visibility_scope="eu")
-                )
-        elif city:
-            if country_code:
-                qs = qs.filter(
-                    Q(tier="claimed")
-                    | Q(
-                        tier="premium",
-                        visibility_scope="eu",
-                    )
-                    | Q(
-                        tier="premium",
-                        visibility_scope="country",
-                        visibility_country__iexact=country_code,
-                    )
-                )
-            else:
-                qs = qs.filter(
-                    Q(tier="claimed")
-                    | Q(tier="premium", visibility_scope="eu")
-                )
-        elif country:
-            if country_code:
-                qs = qs.filter(
-                    Q(
-                        tier="premium",
-                        visibility_scope="eu",
-                    )
-                    | Q(
-                        tier="premium",
-                        visibility_scope="country",
-                        visibility_country__iexact=country_code,
-                    )
-                )
-            else:
-                qs = qs.filter(tier="premium", visibility_scope="eu")
-        else:
-            qs = qs.filter(tier="premium", visibility_scope="eu")
-
         if tier_filter in {"free", "claimed", "premium"}:
             qs = qs.filter(tier=tier_filter)
 
@@ -323,7 +247,14 @@ class BusinessSearchView(APIView):
             qs = qs.filter(is_micro=flag)
 
         total = qs.count()
-        qs = qs.order_by("name")[offset : offset + limit]
+        tier_priority = Case(
+            When(tier="premium", then=0),
+            When(tier="claimed", then=1),
+            When(tier="free", then=2),
+            default=3,
+            output_field=IntegerField(),
+        )
+        qs = qs.order_by(tier_priority, "created_at", "name")[offset : offset + limit]
 
         serializer = BusinessSerializer(qs, many=True)
         data = {
@@ -640,7 +571,7 @@ class FeaturedBusinessListView(APIView):
             # EU-wide: premium listings with EU-wide visibility only
             qs = qs.filter(tier="premium", visibility_scope="eu")
         elif scope == 'country':
-            # Country-wide: premium only, plus visibility scope rules
+            # Country-wide: expose every tier, with premium/claimed ranking below.
             country_param = (country_slug or "").strip()
             if not country_param:
                 return Response({'error': 'country parameter is required'}, status=400)
@@ -650,38 +581,16 @@ class FeaturedBusinessListView(APIView):
                     | Q(code__iexact=country_param)
                     | Q(name__iexact=country_param)
                 )
-                country_code = (country.code or "").upper()
-                qs = qs.filter(country=country, tier="premium")
-                if country_code:
-                    qs = qs.filter(
-                        Q(visibility_scope="eu")
-                        | Q(visibility_scope="country", visibility_country__iexact=country_code)
-                    )
-                else:
-                    qs = qs.filter(visibility_scope="eu")
+                # Location scopes expose every listing tier. Premium and claimed
+                # listings are ranked first below, but free listings remain discoverable.
+                qs = qs.filter(country=country)
             except Country.DoesNotExist:
                 return Response({'error': 'Country not found'}, status=404)
         elif scope == 'city' and city_slug:
-            # City-wide: claimed + premium, plus visibility scope rules
+            # City-wide: expose every tier, with premium/claimed ranking below.
             try:
                 city = City.objects.get(slug=city_slug)
-                country_code = (city.country.code or "").upper() if city.country else ""
-                qs = qs.filter(city=city, tier__in=["claimed", "premium"])
-                if country_code:
-                    qs = qs.filter(
-                        Q(tier="claimed")
-                        | Q(tier="premium", visibility_scope="eu")
-                        | Q(
-                            tier="premium",
-                            visibility_scope="country",
-                            visibility_country__iexact=country_code,
-                        )
-                    )
-                else:
-                    qs = qs.filter(
-                        Q(tier="claimed")
-                        | Q(tier="premium", visibility_scope="eu")
-                    )
+                qs = qs.filter(city=city)
             except City.DoesNotExist:
                 return Response({'error': 'City not found'}, status=404)
         else:
@@ -694,18 +603,14 @@ class FeaturedBusinessListView(APIView):
             
         # Order by tier priority (premium first, then claimed, then free)
         # Then by created_at for consistency
-        tier_order = {
-            'premium': 1,
-            'claimed': 2, 
-            'free': 3
-        }
-        
-        # We can't do complex ordering in Django easily, so let's fetch and sort in Python for now
-        businesses = list(qs[:limit * 2])  # Fetch more to allow for sorting
-        businesses.sort(key=lambda b: (tier_order.get(b.tier, 4), b.created_at))
-        
-        # Take only the limit we need
-        businesses = businesses[:limit]
+        tier_priority = Case(
+            When(tier="premium", then=0),
+            When(tier="claimed", then=1),
+            When(tier="free", then=2),
+            default=3,
+            output_field=IntegerField(),
+        )
+        businesses = qs.order_by(tier_priority, "created_at", "name")[:limit]
         
         serializer = BusinessSerializer(businesses, many=True, context={'request': request})
         

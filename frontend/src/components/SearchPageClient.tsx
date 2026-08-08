@@ -21,6 +21,7 @@ import {
   type UiTextResponse,
 } from "@/lib/api";
 import SnowBackground from "@/components/SnowBackground";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
 
 type Option = { label: string; value: string };
 
@@ -321,9 +322,7 @@ export default function SearchPageClient() {
                 ? `${b.city.name}, ${b.country.name}`
                 : b.country?.name || b.city?.name || null;
 
-            const detailHref = `/${lang}/businesses/${encodeURIComponent(
-              b.slug
-            )}`;
+            const detailHref = getBusinessCanonicalPath(b, lang);
 
             return (
               <article

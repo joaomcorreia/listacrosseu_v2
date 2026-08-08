@@ -9,6 +9,8 @@ import ViewBusinessDetailsModal from "./modals/ViewBusinessDetailsModal";
 import { useTranslations } from "@/i18n/translations";
 import { normalizeLang } from "@/lib/lang";
 import { debugLog } from "@/lib/debug";
+import Link from "next/link";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
 
 interface Business {
   id: number;
@@ -61,6 +63,7 @@ interface Business {
   description?: string;
   logo_url?: string;
   image_url?: string;
+  canonical_path?: string;
 }
 
 interface BusinessCardProps {
@@ -174,7 +177,14 @@ export default function BusinessCard({ business, onClaim, lang }: BusinessCardPr
           />
         );
       default:
-        return <FreeBusinessCard business={business} onClaim={handleClaimClick} t={t} />;
+        return (
+          <FreeBusinessCard
+            business={business}
+            onClaim={handleClaimClick}
+            t={t}
+            lang={effectiveLang}
+          />
+        );
     }
   };
 
@@ -203,7 +213,11 @@ function FreeBusinessCard({
   business,
   onClaim,
   t,
-}: BusinessCardProps & { t: ReturnType<typeof useTranslations> }) {
+  lang,
+}: BusinessCardProps & {
+  t: ReturnType<typeof useTranslations>;
+  lang: string;
+}) {
   const categoryLabel = getCategoryLabel(business) || t.businessCard.uncategorized;
 
   return (
@@ -217,6 +231,13 @@ function FreeBusinessCard({
           <MapPin className="mr-1 h-4 w-4" />
           <span>{getLocationString(business)}</span>
         </div>
+
+        <Link
+          href={getBusinessCanonicalPath(business, lang)}
+          className="block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-blue-700"
+        >
+          {t.buttons.viewDetails}
+        </Link>
 
         <button
           onClick={onClaim}

@@ -58,17 +58,12 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
   const claimModal = useModal();
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
 
-  const normalizedKey = (section.key || "").toLowerCase();
   const premiumOnly =
     (section.settings?.includeTiers?.length || 0) === 1 &&
     section.settings?.includeTiers?.[0] === "premium";
-  const isHomeBusinesses =
-    normalizedKey === "home_businesses" ||
-    normalizedKey === "homepage_businesses" ||
-    normalizedKey === "home_listings" ||
-    normalizedKey === "homepage_listings" ||
-    normalizedKey === "businesses";
-  const premiumOnlySection = premiumOnly || isHomeBusinesses || section.type === "listings_mixed";
+  // Mixed sections include every tier. Premium-only display remains available
+  // when the CMS explicitly sets includeTiers to ["premium"].
+  const premiumOnlySection = premiumOnly;
 
   const limitPerCountry = useMemo(
     () => section.settings?.limitPerCountry || 10,

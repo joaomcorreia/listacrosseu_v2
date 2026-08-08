@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Business } from "@/lib/api/listings";
 import { normalizeLang } from "@/lib/lang";
 import { useTranslations } from "@/i18n/translations";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -83,7 +84,7 @@ export default function BusinessList({
                     <div className="flex-1">
                       <h3 className="text-lg font-medium text-slate-900">
                         <Link
-                          href={`/${lang}/business/${business.slug}`}
+                          href={getBusinessCanonicalPath(business, lang)}
                           className="hover:text-blue-600 transition-colors"
                         >
                           {business.name}
