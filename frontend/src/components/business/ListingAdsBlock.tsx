@@ -1,6 +1,6 @@
 'use client';
 
-export function ListingAdsBlock() {
+export function ListingAdsBlock({ showDirectoryAd = true }: { showDirectoryAd?: boolean }) {
   return (
     <div className="border-2 border-gray-200 rounded-lg p-6 bg-gray-50">
       <div className="text-center">
@@ -8,8 +8,7 @@ export function ListingAdsBlock() {
           Discover More European Businesses
         </h3>
         
-        {/* ListAcrossEU Ad */}
-        <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+        {showDirectoryAd && <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
           <div className="flex items-center justify-between">
             <div className="text-left">
               <h4 className="font-medium text-gray-900">ListAcrossEU</h4>
@@ -24,7 +23,7 @@ export function ListingAdsBlock() {
               Explore
             </a>
           </div>
-        </div>
+        </div>}
 
         {/* Just Code Works Ad */}
         <div className="bg-white rounded-lg p-4 border border-gray-200">

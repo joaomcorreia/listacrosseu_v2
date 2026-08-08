@@ -162,7 +162,7 @@ export default function BlogListPageClient({
             ]}
             variant="dark"
           />
-          <h1 className="mt-4 text-2xl font-semibold">{t.blog.list.title}</h1>
+          <h2 className="mt-4 text-2xl font-semibold">{t.blog.list.title}</h2>
           <p className="mt-1 text-sm text-blue-100">{t.blog.list.subtitle}</p>
         </div>
       </section>

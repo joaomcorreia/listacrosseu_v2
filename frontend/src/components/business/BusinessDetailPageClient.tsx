@@ -6,15 +6,22 @@ import { BusinessHeader } from './BusinessHeader';
 import { BusinessContent } from './BusinessContent';
 import { ListingAdsBlock } from './ListingAdsBlock';
 import { ContactSection } from './ContactSection';
+import { FreeBusinessDetailPage, type RelatedBusiness } from './FreeBusinessDetailPage';
 
 type BusinessDetailPageClientProps = {
   business?: BusinessDetail;
   lang?: string;
+  relatedBusinesses?: RelatedBusiness[];
+  relatedHeading?: string;
 };
 
-export function BusinessDetailPageClient({ business, lang = 'en' }: BusinessDetailPageClientProps) {
+export function BusinessDetailPageClient({ business, lang = 'en', relatedBusinesses = [], relatedHeading }: BusinessDetailPageClientProps) {
   if (!business) {
     return null;
+  }
+
+  if (business.tier === 'free') {
+    return <FreeBusinessDetailPage business={business} relatedBusinesses={relatedBusinesses} relatedHeading={relatedHeading} lang={lang} />;
   }
 
   const getTierStyles = (tier: BusinessDetail['tier']) => {
@@ -50,7 +57,7 @@ export function BusinessDetailPageClient({ business, lang = 'en' }: BusinessDeta
       <div className="container mx-auto px-4 py-8">
         <BusinessContent business={business as never} tierStyles={tierStyles} lang={lang} />
 
-        {(business.tier === 'free' || business.tier === 'claimed') && (
+        {business.tier === 'claimed' && (
           <div className="mt-8">
             <ListingAdsBlock />
           </div>

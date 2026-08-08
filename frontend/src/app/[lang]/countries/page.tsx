@@ -1,5 +1,5 @@
 import Layout from "@/components/Layout";
-import Breadcrumbs from "@/components/Breadcrumbs";
+import InnerPageHero from "@/components/InnerPageHero";
 
 export default async function CountriesPage({
   params,
@@ -8,12 +8,13 @@ export default async function CountriesPage({
 }) {
   const { lang } = await params;
   return (
-    <Layout headerExtra={<Breadcrumbs current="Countries" />}>
+    <Layout>
+      <InnerPageHero variant="tall" title="Countries" description="Explore local businesses and services across Europe." breadcrumbs={[{ label: 'Home', href: `/${lang}` }, { label: 'Countries' }]} />
       <section className="py-20">
         <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
+          <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
             Countries
-          </h1>
+          </h2>
           <p className="mt-4 text-base text-slate-600">Coming soon</p>
           <p className="mt-2 text-xs text-slate-400">Language: {lang}</p>
         </div>

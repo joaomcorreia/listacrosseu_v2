@@ -1,12 +1,12 @@
 import Layout from "@/components/Layout";
 import BlogListPageClient from "@/components/BlogListPageClient";
-import Breadcrumbs from "@/components/Breadcrumbs";
 import StructuredData from "@/components/StructuredData";
 import { generateBreadcrumbSchema } from "@/lib/schema";
 import { generateSEO } from "@/lib/seo";
 import type { BlogCategory, BlogPostListItem } from "@/lib/api";
 import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
+import InnerPageHero from "@/components/InnerPageHero";
 
 export const revalidate = 3600;
 
@@ -111,7 +111,8 @@ export default async function BlogLangPage({
   ];
 
   return (
-    <Layout headerExtra={<Breadcrumbs current="Blog" />}>
+    <Layout>
+      <InnerPageHero variant="tall" title={blogTranslations[lang as keyof typeof blogTranslations]?.title || 'Blog'} description={blogTranslations[lang as keyof typeof blogTranslations]?.description || blogTranslations.en.description} breadcrumbs={[{ label: 'Home', href: `/${lang}` }, { label: 'Blog' }]} />
       <StructuredData data={generateBreadcrumbSchema(breadcrumbs)} />
       <BlogListPageClient
         lang={lang}

@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { fetchBusinessDetail } from "@/lib/api";
 import { BusinessDetailPageClient } from "@/components/business/BusinessDetailPageClient";
+import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
+import Layout from "@/components/Layout";
 
 type Props = {
   params: Promise<{
@@ -165,15 +167,38 @@ export default async function LocationBusinessPage({ params }: Props) {
     jsonLd[key as keyof typeof jsonLd] === undefined && delete jsonLd[key as keyof typeof jsonLd]
   );
 
+  const related = business.tier === 'free' ? await fetchRelatedBusinesses(business) : { items: [], label: business.city?.name || business.country.name };
+
   return (
-    <>
+    <Layout>
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       
-      <BusinessDetailPageClient business={business} />
-    </>
+      <BusinessDetailPageClient business={business} lang={lang} relatedBusinesses={related.items} relatedHeading={related.label} />
+    </Layout>
   );
+}
+
+async function fetchRelatedBusinesses(business: Awaited<ReturnType<typeof fetchBusinessDetail>>) {
+  if (!business.city?.slug) return { items: [], label: business.country.name };
+  const fetchResults = async (params: Record<string, string>) => {
+    const searchParams = new URLSearchParams({ ...params, limit: '12', offset: '0' });
+    const response = await fetch(`${INTERNAL_BACKEND_URL}/api/listings/businesses/search/?${searchParams.toString()}`, {
+      next: { revalidate: 300 }, headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data.results) ? data.results : [];
+  };
+  const seen = new Set<number>([business.id]);
+  const related: any[] = [];
+  const add = (items: any[]) => items.forEach((item) => { if (!seen.has(item.id)) { seen.add(item.id); related.push(item); } });
+  add(await fetchResults({ city: business.city.slug }));
+  let label = business.city.name;
+  if (related.length < 6) { add(await fetchResults({ country: business.country.slug })); label = business.country.name; }
+  if (related.length < 6 && business.category?.slug) add(await fetchResults({ country: business.country.slug, category: business.category.slug }));
+  return { items: related.slice(0, 12), label };
 }
