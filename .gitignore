@@ -43,6 +43,7 @@ magicai_frontend.js
 # General
 .DS_Store
 Thumbs.db
+*.sqlite3
 .vscode/
 .idea/
 .pytest_cache/

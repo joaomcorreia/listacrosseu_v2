@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 
-export default function VerifyRedirectPage({
+export default async function VerifyRedirectPage({
   searchParams,
 }: {
-  searchParams: { token?: string };
+  searchParams: Promise<{ token?: string }>;
 }) {
-  const token = searchParams.token ? encodeURIComponent(searchParams.token) : "";
+  const resolvedSearchParams = await searchParams;
+  const token = resolvedSearchParams.token
+    ? encodeURIComponent(resolvedSearchParams.token)
+    : "";
   const target = token ? `/en/verify?token=${token}` : `/en/verify`;
   redirect(target);
 }

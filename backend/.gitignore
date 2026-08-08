@@ -33,6 +33,7 @@ staticfiles/
 .env.*.local
 .env.*
 !.env.example
+!.env.development.example
 
 # Local secrets / scratch files
 OPENAI_API_KEY

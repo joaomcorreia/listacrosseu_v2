@@ -1,11 +1,12 @@
 import Layout from "@/components/Layout";
 import Breadcrumbs from "@/components/Breadcrumbs";
 
-export default function CitiesPage({
+export default async function CitiesPage({
   params,
 }: {
-  params: { lang: string };
+  params: Promise<{ lang: string }>;
 }) {
+  const { lang } = await params;
   return (
     <Layout headerExtra={<Breadcrumbs current="Cities" />}>
       <section className="py-20">
@@ -14,7 +15,7 @@ export default function CitiesPage({
             Cities
           </h1>
           <p className="mt-4 text-base text-slate-600">Coming soon</p>
-          <p className="mt-2 text-xs text-slate-400">Language: {params.lang}</p>
+          <p className="mt-2 text-xs text-slate-400">Language: {lang}</p>
         </div>
       </section>
     </Layout>

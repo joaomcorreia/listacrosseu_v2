@@ -7,9 +7,9 @@ import BlogCarousel from "@/components/BlogCarousel";
 import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 
 interface HomeLangPageProps {
-  params: {
+  params: Promise<{
     lang: string;
-  };
+  }>;
 }
 
 export default async function HomeLangPage({ params }: HomeLangPageProps) {

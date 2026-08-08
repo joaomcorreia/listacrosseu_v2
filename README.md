@@ -10,10 +10,41 @@
 - **Frontend**: Next.js 14 App Router + TypeScript + Tailwind CSS
 - **Languages**: English, French, Dutch, Portuguese, German, Spanish, Arabic
 
-## Development
+## Local development
 
-- Backend runs at: http://127.0.0.1:8000/
-- Frontend runs at: http://localhost:3000/
+The repository has two applications:
+
+- `backend/`: Django REST API and the populated local SQLite database.
+- `frontend/`: Next.js App Router application.
+
+### Backend
+
+The supported local interpreter is `backend\.venv`.
+
+```powershell
+cd C:\projects\listacrosseu_v2\backend
+.\.venv\Scripts\Activate.ps1
+python manage.py check
+python manage.py runserver 127.0.0.1:8020
+```
+
+Backend URL: http://127.0.0.1:8020/
+
+The development settings module is `listacrosseu_backend.settings`. Local settings use Django debug defaults, localhost hosts, and `backend/db.sqlite3`. Production uses the separate `config.settings.production` module and must retain its deployment environment variables.
+
+### Frontend
+
+```powershell
+cd C:\projects\listacrosseu_v2\frontend
+npm ci
+npm run dev
+```
+
+Frontend URL: http://localhost:3000/
+
+The local frontend API variables are `NEXT_PUBLIC_API_BASE_URL` and `BACKEND_URL`; both should point to `http://127.0.0.1:8020` for this setup. Other supported frontend variables include `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_STAGING_NOINDEX`, and `ENABLE_VISUAL_HOMEPAGE_EDITOR`.
+
+Do not reset, recreate, flush, migrate destructively, seed, or replace `backend/db.sqlite3`. It contains the populated development dataset.
 
 ## Documentation
 
