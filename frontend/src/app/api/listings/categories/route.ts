@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${INTERNAL_BACKEND_URL}/api/listings/categories/`, {
+    const query = request.nextUrl.search;
+    const response = await fetch(`${INTERNAL_BACKEND_URL}/api/listings/categories/${query}`, {
       headers: { "Content-Type": "application/json" },
     });
     if (!response.ok) {

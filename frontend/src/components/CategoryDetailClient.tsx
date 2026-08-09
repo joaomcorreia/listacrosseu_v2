@@ -13,6 +13,8 @@ import BusinessCard from "@/components/BusinessCard";
 import InfoBoxes from "@/components/InfoBoxes";
 import { getInfoBoxes } from "@/content/infoboxes";
 import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
+import DirectoryViewToggle, { type DirectoryView } from "@/components/DirectoryViewToggle";
+import DirectoryBusinessList from "@/components/DirectoryBusinessList";
 
 interface CategoryDetailClientProps {
   categorySlug: string;
@@ -30,6 +32,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [view, setView] = useState<DirectoryView>("grid");
 
   const limit = 24;
   const format = (template: string, values: Record<string, string | number>) =>
@@ -93,6 +96,16 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
       cancelled = true;
     };
   }, [categorySlug, page, lang]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("listacrosseu-directory-view");
+    if (saved === "grid" || saved === "list") setView(saved);
+  }, []);
+
+  const changeView = (nextView: DirectoryView) => {
+    setView(nextView);
+    window.localStorage.setItem("listacrosseu-directory-view", nextView);
+  };
 
   const loadMore = () => {
     if (!loading && hasMore) {
@@ -235,25 +248,27 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
               )}
               {businesses && businesses.results.length > 0 ? (
                 <div>
-                  <div className="flex items-center justify-between mb-8">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="text-2xl font-bold text-slate-900">
                       {format(categoriesText.resultsTitle, { category: category.name })}
                     </h2>
-                    <span className="text-sm text-slate-600">
-                      {format(categoriesText.totalLabel, { count: businesses.total.toLocaleString() })}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm text-slate-600">
+                        {format(categoriesText.totalLabel, { count: businesses.total.toLocaleString() })}
+                      </span>
+                      <DirectoryViewToggle value={view} onChange={changeView} />
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                    {sortedBusinesses.map((business) => (
-                      <div
-                        key={business.id}
-                        className={business.tier === "premium" ? "col-span-2" : ""}
-                      >
-                        <BusinessCard business={business as any} lang={lang} />
-                      </div>
-                    ))}
-                  </div>
+
+                  {view === "grid" ? (
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {sortedBusinesses.map((business) => (
+                        <BusinessCard key={business.id} business={business as any} lang={lang} />
+                      ))}
+                    </div>
+                  ) : (
+                    <DirectoryBusinessList businesses={sortedBusinesses as any} lang={lang} />
+                  )}
                   
                   {/* Load More Button */}
                   {hasMore && (

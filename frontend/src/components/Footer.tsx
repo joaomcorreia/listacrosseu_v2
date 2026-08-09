@@ -20,11 +20,7 @@ const footerLinks: {
 } = {
   sources: [],
   blogCategories: [
-    { key: 'businessTips', slug: 'business-tips' },
-    { key: 'marketInsights', slug: 'market-insights' },
-    { key: 'successStories', slug: 'success-stories' },
-    { key: 'industryNews', slug: 'industry-news' },
-    { key: 'euRegulations', slug: 'eu-regulations' },
+    { key: 'businessTips', slug: 'guides' },
   ],
   menu: [
     { key: 'countries', href: '/countries' },

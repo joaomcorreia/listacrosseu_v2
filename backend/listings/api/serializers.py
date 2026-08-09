@@ -104,6 +104,29 @@ class BusinessSerializer(serializers.ModelSerializer):
             "external_id",
         ]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        dashboard = (instance.premium_sidebar or {}).get("_dashboard", {})
+        data.update({
+            "region": dashboard.get("region", ""),
+            "business_type": dashboard.get("business_type", ""),
+            "owner_name": dashboard.get("owner_name", ""),
+            "email": dashboard.get("email", ""),
+        })
+        visibility = dashboard.get("visibility", {})
+        defaults = {
+            "owner_name": False,
+            "email": False,
+            "phone": True,
+            "website": True,
+            "city": True,
+            "region": True,
+        }
+        for field, default in defaults.items():
+            if visibility.get(field, default) is False:
+                data[field] = None if field == "city" else ""
+        return data
+
     def get_country_slug(self, obj):
         return obj.country.slug if obj.country else None
 

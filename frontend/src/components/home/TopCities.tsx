@@ -19,10 +19,10 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
     async function loadTopCities() {
       try {
         const data = await fetchCities({ limit: 12 });
-        setCities(data.length > 0 ? data : getFallbackCities());
+        setCities(data);
       } catch (error) {
-        debugWarn('Failed to load cities, using fallback:', error);
-        setCities(getFallbackCities());
+        debugWarn('Failed to load live cities:', error);
+        setCities([]);
       } finally {
         setLoading(false);
       }
@@ -30,18 +30,6 @@ const TopCities: React.FC<TopCitiesProps> = ({ lang }) => {
 
     loadTopCities();
   }, [lang]);
-
-  // Fallback cities if API fails
-  const getFallbackCities = (): City[] => [
-    { id: 1, name: 'Lisbon', slug: 'lisbon', country: { id: 1, name: 'Portugal', slug: 'portugal' }, business_count: 2500 },
-    { id: 2, name: 'Porto', slug: 'porto', country: { id: 1, name: 'Portugal', slug: 'portugal' }, business_count: 1800 },
-    { id: 3, name: 'Paris', slug: 'paris', country: { id: 2, name: 'France', slug: 'france' }, business_count: 4200 },
-    { id: 4, name: 'Berlin', slug: 'berlin', country: { id: 3, name: 'Germany', slug: 'germany' }, business_count: 3100 },
-    { id: 5, name: 'Amsterdam', slug: 'amsterdam', country: { id: 4, name: 'Netherlands', slug: 'netherlands' }, business_count: 2200 },
-    { id: 6, name: 'Barcelona', slug: 'barcelona', country: { id: 5, name: 'Spain', slug: 'spain' }, business_count: 2800 },
-    { id: 7, name: 'Rome', slug: 'rome', country: { id: 6, name: 'Italy', slug: 'italy' }, business_count: 2600 },
-    { id: 8, name: 'Vienna', slug: 'vienna', country: { id: 7, name: 'Austria', slug: 'austria' }, business_count: 1400 }
-  ];
 
   const CityCard: React.FC<{ city: City }> = ({ city }) => (
     <Link 

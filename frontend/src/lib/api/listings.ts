@@ -235,7 +235,7 @@ export async function fetchCountriesWithStats(): Promise<CountryWithStats[]> {
     return data;
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
-      console.error("🔥 fetchCountriesWithStats error:", error);
+      debugLog("fetchCountriesWithStats failed:", error);
     }
     throw error;
   }

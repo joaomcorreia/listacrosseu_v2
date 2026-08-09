@@ -4,8 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { normalizeLang } from '@/lib/lang';
 import { useTranslations } from '@/i18n/translations';
-import { fetchCountries, fetchCategories } from '@/lib/api/listings';
-import { PUBLIC_API_BASE_URL } from '@/lib/env.public';
+import { fetchCountriesWithStats, fetchCategories } from '@/lib/api/listings';
 
 // Progress bar styling (width controlled by state)
 const progressAnimation = `
@@ -15,8 +14,6 @@ const progressAnimation = `
     transition: width 50ms linear;
   }
 `;
-
-const API_BASE_URL = PUBLIC_API_BASE_URL;
 
 interface CountryWithCount {
   id: number;
@@ -100,20 +97,26 @@ function formatBusinessCount(count: number): string {
 
 // Helper function to fetch categories with business counts for a specific country
 async function fetchCategoriesWithCounts(countrySlug: string): Promise<CategoryWithCount[]> {
-  const url = `${API_BASE_URL}/api/listings/categories/?country=${encodeURIComponent(countrySlug)}&global_top=true`;
-  
-  const response = await fetch(url, {
+  const url = `/api/listings/categories/?country=${encodeURIComponent(countrySlug)}&global_top=true`;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(url, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
   });
 
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status} - ${response.statusText}`);
-  }
+    if (!response.ok) return [];
 
-  return response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export default function CountryExplorer({ settings: _settings }: { settings?: Record<string, unknown> } = {}) {
@@ -125,6 +128,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [countriesError, setCountriesError] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -134,7 +138,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
   useEffect(() => {
     const loadCountries = async () => {
       try {
-        const countriesData = await fetchCountries();
+        const countriesData = await fetchCountriesWithStats();
         const countriesWithColors = countriesData.map((country: any) => {
           // Use the actual country code from the API if available, otherwise derive from slug
           let countryCode = country.code;
@@ -188,6 +192,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
           };
         });
         setCountries(countriesWithColors);
+        setCountriesError(false);
         
         // Set Germany as default selection if available, otherwise first country
         if (countriesWithColors.length > 0) {
@@ -199,7 +204,10 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
         }
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching countries:', error);
+        setCountries([]);
+        setSelectedCountry(null);
+        setCategories([]);
+        setCountriesError(true);
         setLoading(false);
       }
     };
@@ -224,7 +232,6 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
           categoriesCache.current.set(selectedCountry.slug, topCategories);
           setCategories(topCategories);
         } catch (error) {
-          console.error('Error fetching categories:', error);
           setCategories([]);
         }
         setCategoriesLoading(false);
@@ -276,6 +283,24 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-slate-600">{t.home.countryExplorer.loadingCountries}</p>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (countriesError) {
+    return (
+      <section className="py-16 bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="mx-auto max-w-7xl px-4 text-center">
+          <h2 className="text-3xl font-bold text-slate-900">{t.home.countryExplorer.title}</h2>
+          <p className="mt-4 text-slate-600">Country data is temporarily unavailable. Please try again.</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Try again
+          </button>
         </div>
       </section>
     );
@@ -364,7 +389,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
             </div>
             
             <div className="mt-6">
-              <a href="/en/countries" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
+              <a href={`/${lang}/countries`} className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium">
                 {t.home.countryExplorer.viewAllCountries.replace("{count}", String(countries.length))}
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd"/>
@@ -387,7 +412,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
                     )}
                   </p>
                   <a 
-                    href={`/en/countries/${selectedCountry.code}`} 
+                    href={`/${lang}/countries/${selectedCountry.slug}`}
                     className="inline-block bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-lg font-medium hover:bg-white/30 transition-colors border border-white/30"
                   >
                     {t.home.countryExplorer.exploreCountry.replace("{country}", selectedCountry.name)}
@@ -417,7 +442,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
                         return (
                           <a
                             key={category.id}
-                            href={`/en/categories/${category.slug}`}
+                            href={`/${lang}/categories/${category.slug}`}
                             className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group min-h-[56px]"
                           >
                         <div className="flex items-center gap-3">
@@ -455,7 +480,7 @@ export default function CountryExplorer({ settings: _settings }: { settings?: Re
               </div>
               
               <div className="mt-4 pt-4 border-t border-slate-200">
-                <a href="/en/categories" className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                <a href={`/${lang}/categories`} className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                   {t.home.countryExplorer.browseAllCategories}
                 </a>
               </div>

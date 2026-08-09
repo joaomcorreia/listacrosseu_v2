@@ -20,10 +20,10 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
     async function loadCategories() {
       try {
         const data = await fetchCategories();
-        setCategories(data.length > 0 ? data : getFallbackCategories());
+        setCategories(data);
       } catch (error) {
-        debugWarn('Failed to load categories, using fallback:', error);
-        setCategories(getFallbackCategories());
+        debugWarn('Failed to load live categories:', error);
+        setCategories([]);
       } finally {
         setLoading(false);
       }
@@ -32,15 +32,6 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
     loadCategories();
   }, [lang]);
 
-  // Fallback categories if API fails
-  const getFallbackCategories = (): Category[] =>
-    t.home.categoryMarquee.fallbackCategories.map((item, index) => ({
-      id: index + 1,
-      name: item.name,
-      slug: item.slug,
-      business_count: item.businessCount,
-    }));
-
   const featuredCategories = useMemo(() => {
     const sorted = [...categories]
       .filter((category) => category.slug !== 'uncategorized' && category.name !== 'Uncategorized')
@@ -48,47 +39,39 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
     return sorted.slice(0, 6);
   }, [categories]);
 
-  const categoryThemes: Record<string, { gradient: string; icon: string; tags: string[] }> = {
+  const categoryThemes: Record<string, { gradient: string; icon: string }> = {
     restaurants: {
       gradient: 'from-orange-200 via-rose-100 to-red-200',
       icon: t.home.categoryMarquee.icons.restaurants,
-      tags: t.home.categoryMarquee.tags.restaurants,
     },
     automotive: {
       gradient: 'from-slate-200 via-blue-100 to-slate-300',
       icon: t.home.categoryMarquee.icons.automotive,
-      tags: t.home.categoryMarquee.tags.automotive,
     },
     'shopping-retail': {
       gradient: 'from-fuchsia-200 via-pink-100 to-purple-200',
       icon: t.home.categoryMarquee.icons.shoppingRetail,
-      tags: t.home.categoryMarquee.tags.shoppingRetail,
     },
     'health-medical': {
       gradient: 'from-emerald-200 via-teal-100 to-sky-200',
       icon: t.home.categoryMarquee.icons.healthMedical,
-      tags: t.home.categoryMarquee.tags.healthMedical,
     },
     'professional-services': {
       gradient: 'from-amber-200 via-yellow-100 to-orange-200',
       icon: t.home.categoryMarquee.icons.professionalServices,
-      tags: t.home.categoryMarquee.tags.professionalServices,
     },
     'beauty-wellness': {
       gradient: 'from-pink-200 via-rose-100 to-purple-200',
       icon: t.home.categoryMarquee.icons.beautyWellness,
-      tags: t.home.categoryMarquee.tags.beautyWellness,
     },
   };
 
-  const fallbackTheme = {
-    gradient: 'from-blue-200 via-slate-100 to-indigo-200',
-    icon: t.home.categoryMarquee.icons.fallback,
-    tags: t.home.categoryMarquee.tags.fallback,
-  };
   const CategoryCard: React.FC<{ category: Category }> = ({ category }) => {
     const count = category.business_count || 0;
-    const theme = categoryThemes[category.slug] || fallbackTheme;
+    const theme = categoryThemes[category.slug] || {
+      gradient: 'from-blue-200 via-slate-100 to-indigo-200',
+      icon: category.name.charAt(0).toUpperCase(),
+    };
 
     return (
       <Link
@@ -99,7 +82,7 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
         <div className="absolute -bottom-10 -right-6 h-32 w-32 rounded-full bg-white/40 blur-2xl" />
 
         <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="text-4xl">{theme.icon}</div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-xl font-bold text-slate-700">{theme.icon}</div>
           <h3 className="mt-4 text-2xl font-bold text-slate-900">
             {category.name}
           </h3>
@@ -107,16 +90,6 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
             {count.toLocaleString()} {t.home.categoryMarquee.businessesLabel}
           </p>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {theme.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
         </div>
       </Link>
     );

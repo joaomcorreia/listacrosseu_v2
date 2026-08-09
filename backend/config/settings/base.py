@@ -102,19 +102,29 @@ ALLOWED_HOSTS = get_env_list(
 
 CSRF_TRUSTED_ORIGINS = get_env_list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=["http://127.0.0.1:3000", "http://localhost:3000"] if DEBUG else [],
+    default=[
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3004",
+        "http://localhost:3004",
+    ] if DEBUG else [],
 )
 
 CORS_ALLOWED_ORIGINS = get_env_list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
-    default=["http://127.0.0.1:3000", "http://localhost:3000"] if DEBUG else [],
+    default=[
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3004",
+        "http://localhost:3004",
+    ] if DEBUG else [],
 )
 
 CORS_ALLOW_CREDENTIALS = True
 
 PUBLIC_SITE_URL = get_env(
     "NEXT_PUBLIC_SITE_URL",
-    default="http://127.0.0.1:3000" if DEBUG else "",
+    default="http://localhost:3004" if DEBUG else "",
 )
 FRONTEND_SITE_URL = PUBLIC_SITE_URL.rstrip("/")
 

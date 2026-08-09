@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { normalizeLang } from '@/lib/lang';
-import ListingFlowModal, { type Business as ListingBusiness, type ClaimSubmitData } from './modals/ListingFlowModal';
+import ListingFlowModal, { type Business as ListingBusiness, type ClaimSubmitData, type ClaimSubmitResult } from './modals/ListingFlowModal';
 import { PUBLIC_API_BASE_URL } from '@/lib/env.public';
 
 interface Business {
@@ -75,7 +75,7 @@ export default function ClaimBusinessModal({
 
   const submitHandler =
     onSubmit ||
-    (async (data: ClaimSubmitData) => {
+    (async (data: ClaimSubmitData): Promise<ClaimSubmitResult> => {
       const response = await fetch(`${PUBLIC_API_BASE_URL}/api/claims`, {
         method: "POST",
         headers: {
@@ -86,10 +86,11 @@ export default function ClaimBusinessModal({
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("API Error:", response.status, errorText);
-        throw new Error(`Failed to submit claim: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("API Error:", response.status, errorData);
+        throw new Error(errorData.message || `Failed to submit claim: ${response.status}`);
       }
+      return response.json();
     });
 
   const hasBusiness = Boolean(business);

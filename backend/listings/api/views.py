@@ -104,8 +104,10 @@ def create_claim(request):
     verification_url = f"{verification_base_url.rstrip('/')}/verify?token={claim.verification_token}" if verification_base_url else f"/verify?token={claim.verification_token}"
     logger.info("Attempting to send verification email for claim_id=%s", claim.id)
 
+    is_console_backend = settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend"
+
     try:
-        send_mail(
+        delivered = send_mail(
             subject="Verify your business claim on ListAcross.eu",
             message=f"Click here to verify: {verification_url}",
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -115,10 +117,39 @@ def create_claim(request):
         logger.info("Verification email sent for claim_id=%s", claim.id)
     except Exception as e:
         logger.exception("Verification email failed for claim_id=%s", claim.id)
-        raise
+        return Response(
+            {
+                "message": "Claim created, but the verification email could not be delivered.",
+                "claim_id": claim.id,
+                "email_status": "failed",
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    if not delivered:
+        logger.error("Verification email backend reported no delivery for claim_id=%s", claim.id)
+        return Response(
+            {
+                "message": "Claim created, but the verification email could not be delivered.",
+                "claim_id": claim.id,
+                "email_status": "failed",
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    if is_console_backend and settings.DEBUG:
+        return Response(
+            {
+                "message": "Verification link created. Check the development mail output.",
+                "claim_id": claim.id,
+                "email_status": "console",
+                "verification_url": verification_url,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     return Response(
-        {"message": "Verification email sent", "claim_id": claim.id},
+        {"message": "Verification email sent", "claim_id": claim.id, "email_status": "sent"},
         status=status.HTTP_201_CREATED,
     )
 
@@ -136,17 +167,33 @@ def verify_claim(request):
         return Response({"error": "Token required"}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        claim = BusinessClaimRequest.objects.get(verification_token=token)
+        token_uuid = uuid.UUID(str(token))
+    except (TypeError, ValueError, AttributeError):
+        return Response({"error": "Invalid verification token"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        claim = BusinessClaimRequest.objects.get(verification_token=token_uuid)
 
         if claim.status == "verified":
-            return Response({"message": "Already verified"})
+            if claim.listing and claim.listing.tier == "free":
+                claim.listing.tier = "claimed"
+                claim.listing.save(update_fields=["tier"])
+            return Response({"message": "Already verified", "claim_id": claim.id, "business_id": claim.listing_id})
 
         claim.status = "verified"
         claim.verified_at = timezone.now()
         claim.save()
+        if claim.listing and claim.listing.tier == "free":
+            claim.listing.tier = "claimed"
+            claim.listing.save(update_fields=["tier"])
 
         return Response(
-            {"message": "Claim verified successfully", "business_name": claim.business_name}
+            {
+                "message": "Claim verified successfully",
+                "claim_id": claim.id,
+                "business_id": claim.listing_id,
+                "business_name": claim.business_name,
+            }
         )
     except BusinessClaimRequest.DoesNotExist:
         return Response({"error": "Invalid token"}, status=status.HTTP_404_NOT_FOUND)

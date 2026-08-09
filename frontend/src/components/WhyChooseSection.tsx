@@ -64,22 +64,30 @@ const baseFeatures = [
   },
 ];
 
+const factualFeatures = [
+  { title: 'Free business listings', description: 'Businesses can be listed in the directory at no cost.', badge: 'Free', points: ['Basic business profile', 'Country and city visibility', 'Category placement'] },
+  { title: 'Browse across Europe', description: 'Explore listed businesses by country, city, and category.', badge: 'EU directory', points: ['Country browsing', 'City browsing', 'Category browsing'] },
+  { title: 'Claim your listing', description: 'Business owners can claim an existing listing through the verification flow.', badge: 'Owner claim', points: ['Ownership verification', 'Claimed listing state', 'Owner dashboard access'] },
+  { title: 'Keep information updated', description: 'Owners can manage supported listing information from the dashboard.', badge: 'Owner-managed', points: ['Edit listing details', 'Visibility controls', 'Saved business information'] },
+  { title: 'Generated website option', description: 'Claimed businesses can create a website draft from their listing.', badge: 'Website draft', points: ['Structured website sections', 'Live preview', 'Optional trial activation'] },
+  { title: 'Search local businesses', description: 'Use the directory search to find businesses and services in specific places.', badge: 'Search', points: ['Business search', 'Location filters', 'Category filters'] },
+];
+
 export default function WhyChooseSection({ title, subtitle, items }: WhyChooseSectionProps) {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || 'en'));
   const t = useTranslations(lang);
   const [activeFeature, setActiveFeature] = useState(0);
   const features = useMemo(() => {
-    const translationFeatures = t.home.whyChoose.features || [];
-    const source = items?.length ? items : translationFeatures;
+    const source = factualFeatures;
     return baseFeatures.map((feature, index) => ({
       ...feature,
-      title: source[index]?.title || translationFeatures[index]?.title || '',
-      description: source[index]?.description || translationFeatures[index]?.description || '',
-      badge: source[index]?.badge || translationFeatures[index]?.badge || '',
-      points: source[index]?.points || translationFeatures[index]?.points || [],
+      title: source[index]?.title || '',
+      description: source[index]?.description || '',
+      badge: source[index]?.badge || '',
+      points: source[index]?.points || [],
     }));
-  }, [items, t]);
+  }, [t]);
 
   useEffect(() => {
     if (features.length === 0) {
@@ -101,7 +109,7 @@ export default function WhyChooseSection({ title, subtitle, items }: WhyChooseSe
             {title || t.home.whyChoose.title}
           </h2>
           <p className="text-lg text-slate-600 max-w-3xl mx-auto">
-            {subtitle || t.home.whyChoose.subtitle}
+            {subtitle || 'A practical directory for discovering businesses and managing claimed listings.'}
           </p>
         </div>
 

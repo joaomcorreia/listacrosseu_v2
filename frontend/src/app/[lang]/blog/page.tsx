@@ -8,7 +8,7 @@ import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
 import InnerPageHero from "@/components/InnerPageHero";
 
-export const revalidate = 3600;
+export const revalidate = 0;
 
 const blogTranslations = {
   en: {
@@ -46,7 +46,7 @@ const blogTranslations = {
 async function fetchBlogPosts(lang: string): Promise<BlogPostListItem[]> {
   const baseUrl = INTERNAL_BACKEND_URL;
   const res = await fetch(`${baseUrl}/api/blog/?lang=${encodeURIComponent(lang)}`, {
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
   if (!res.ok) {
     return [];
@@ -59,7 +59,7 @@ async function fetchBlogCategories(lang: string): Promise<BlogCategory[]> {
   const baseUrl = INTERNAL_BACKEND_URL;
   const res = await fetch(
     `${baseUrl}/api/blog/categories/?lang=${encodeURIComponent(lang)}`,
-    { next: { revalidate: 3600 } }
+    { cache: "no-store" }
   );
   if (!res.ok) {
     return [];

@@ -221,9 +221,14 @@ function FreeBusinessCard({
   const categoryLabel = getCategoryLabel(business) || t.businessCard.uncategorized;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="space-y-3 p-4">
-        <h3 className="text-lg font-bold text-gray-900">{business.name}</h3>
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:-translate-y-0.5 hover:shadow-md">
+      <div className="space-y-3 p-5">
+        <Link
+          href={getBusinessCanonicalPath(business, lang)}
+          className="block text-lg font-bold text-gray-900 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          {business.name}
+        </Link>
 
         <CategoryBadge label={categoryLabel} />
 
@@ -232,18 +237,11 @@ function FreeBusinessCard({
           <span>{getLocationString(business)}</span>
         </div>
 
-        <Link
-          href={getBusinessCanonicalPath(business, lang)}
-          className="block w-full rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          {t.buttons.viewDetails}
-        </Link>
-
         <button
           onClick={onClaim}
-          className="w-full rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+          className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
-          {t.buttons.claimBusiness}
+          Claim for free
         </button>
       </div>
     </div>

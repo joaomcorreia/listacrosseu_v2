@@ -1,5 +1,6 @@
 import Layout from "@/components/Layout";
 import InnerPageHero from "@/components/InnerPageHero";
+import CitiesPageClient from "@/components/CitiesPageClient";
 
 export default async function CitiesPage({
   params,
@@ -10,15 +11,7 @@ export default async function CitiesPage({
   return (
     <Layout>
       <InnerPageHero variant="tall" title="Cities" description="Find businesses, services, and local expertise in European cities." breadcrumbs={[{ label: 'Home', href: `/${lang}` }, { label: 'Cities' }]} />
-      <section className="py-20">
-        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
-            Cities
-          </h2>
-          <p className="mt-4 text-base text-slate-600">Coming soon</p>
-          <p className="mt-2 text-xs text-slate-400">Language: {lang}</p>
-        </div>
-      </section>
+      <section className="py-16"><div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8"><CitiesPageClient /></div></section>
     </Layout>
   );
 }

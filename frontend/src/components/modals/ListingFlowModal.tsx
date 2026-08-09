@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ArrowLeft, ChevronRight } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
 import PremiumPagePreview from '../premium/PremiumPagePreview';
 import BusinessCard from '../BusinessCard';
 import { useTranslations } from '@/i18n/translations';
@@ -30,7 +30,7 @@ interface ListingFlowModalProps {
   lang: string;
   business: Business;
   startStep?: "claim" | "premium";
-  onSubmit?: (data: ClaimSubmitData) => Promise<void>;
+  onSubmit?: (data: ClaimSubmitData) => Promise<ClaimSubmitResult | void>;
   showPreview?: boolean;
 }
 
@@ -63,6 +63,13 @@ export interface ClaimSubmitData {
   services?: string[];
   images?: File[];
   listing_id?: number;
+}
+
+export interface ClaimSubmitResult {
+  message?: string;
+  claim_id?: number;
+  email_status?: 'sent' | 'console';
+  verification_url?: string;
 }
 
 export default function ListingFlowModal({ 
@@ -101,6 +108,8 @@ export default function ListingFlowModal({
   const [aiOriginalDescription, setAiOriginalDescription] = useState<string | null>(null);
   const [aiAppliedMessage, setAiAppliedMessage] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitResult, setSubmitResult] = useState<ClaimSubmitResult | null>(null);
+  const [submitError, setSubmitError] = useState('');
 
   // Reset step when startStep changes
   useEffect(() => {
@@ -227,7 +236,7 @@ export default function ListingFlowModal({
     try {
       // Placeholder: wire Anthropic API here.
       await new Promise(resolve => setTimeout(resolve, 600));
-      const improvedDescription = `${currentDescription || t.forms.claimForm.messages.defaultDescription} in the ${businessType.toLowerCase()} space, serving customers across Europe with fast response times, transparent pricing, and verified quality standards.`;
+      const improvedDescription = `${currentDescription || t.forms.claimForm.messages.defaultDescription} in the ${businessType.toLowerCase()} space, serving customers across Europe with clear information and practical service details.`;
       const services = [
         `${businessType} Service 1`,
         `${businessType} Service 2`,
@@ -301,8 +310,9 @@ export default function ListingFlowModal({
     };
 
     try {
+      setSubmitError('');
       if (onSubmit) {
-        await onSubmit(payload);
+        setSubmitResult((await onSubmit(payload)) || null);
       } else {
         debugLog('Claim submitted (demo)', payload);
         alert(t.forms.claimForm.messages.claimSubmittedDemo);
@@ -310,6 +320,7 @@ export default function ListingFlowModal({
       setSubmitSuccess(true);
     } catch (error) {
       console.error('Failed to submit claim:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Unable to submit the claim.');
     }
   };
 
@@ -370,32 +381,6 @@ export default function ListingFlowModal({
                       business={mergedBusiness as any}
                     />
                   </div>
-                  <div className="bg-gradient-to-r from-green-50 to-orange-50 border border-orange-200 rounded-lg p-4 mt-6">
-                    <h4 className="font-bold text-gray-900 mb-2">
-                      {t.forms.claimForm.premiumBox.title}
-                    </h4>
-                    <p className="text-sm text-gray-600 mb-3">
-                      {t.forms.claimForm.premiumBox.body}
-                    </p>
-                    <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-2xl font-bold text-orange-600">{t.forms.claimForm.premiumBox.priceValue}</span>
-                      <span className="text-gray-600">{t.forms.claimForm.premiumBox.priceSuffix}</span>
-                    </div>
-                    <a
-                      href={`/${lang}/pricing`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors font-medium flex items-center"
-                    >
-                      {t.buttons.seeAllPlans}
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </a>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {t.forms.claimForm.premiumBox.note}
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -404,10 +389,15 @@ export default function ListingFlowModal({
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t.forms.claimForm.sections.claimDetails}</h3>
                 {submitSuccess ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                    <div className="font-semibold text-emerald-900">{t.forms.claimForm.messages.checkEmailTitle}</div>
+                    <div className="font-semibold text-emerald-900">{submitResult?.email_status === 'console' ? 'Verification link created' : t.forms.claimForm.messages.checkEmailTitle}</div>
                     <p className="mt-2">
-                      {t.forms.claimForm.messages.checkEmailBody}
+                      {submitResult?.message || t.forms.claimForm.messages.checkEmailBody}
                     </p>
+                    {submitResult?.verification_url && (
+                      <a href={submitResult.verification_url} className="mt-3 inline-flex font-semibold text-emerald-800 underline">
+                        Open verification link
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={onClose}
@@ -418,6 +408,7 @@ export default function ListingFlowModal({
                   </div>
                 ) : (
                   <form onSubmit={handleSubmitClaim} className="space-y-4">
+                  {submitError && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{submitError}</div>}
                   {/* Personal Info */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>

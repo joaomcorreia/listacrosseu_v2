@@ -1,35 +1,15 @@
 import Layout from '@/components/Layout';
-import PremiumPagePreview from '@/components/premium/PremiumPagePreview';
+import PremiumPreviewClient from '@/components/premium/PremiumPreviewClient';
 
 export default async function PremiumPreviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ lang: string }>;
+  searchParams: Promise<{ business?: string }>;
 }) {
   const { lang } = await params;
+  const { business } = await searchParams;
 
-  // Demo business data
-  const businessData = {
-    id: "demo",
-    slug: "premium-restaurant-example",
-    name: "Premium Restaurant Example",
-    category: { name: "Fine Dining Restaurant" },
-    address: "123 Premium Street, Amsterdam, Netherlands",
-    phone: "+31 20 123 4567",
-    website: "www.premiumrestaurant.nl",
-    description: "Experience exceptional dining at our premium restaurant where culinary artistry meets impeccable service. Our award-winning chefs create innovative dishes using locally sourced ingredients, providing an unforgettable gastronomic journey in an elegant atmosphere.",
-    keywords: ["Fine Dining", "European Cuisine", "Wine Pairing", "Private Events", "Romantic Atmosphere"],
-    city: { name: "Amsterdam" },
-    country: { name: "Netherlands" },
-    is_premium: true,
-    tier: "premium" as const
-  };
-
-  return (
-    <Layout>
-      <div className="min-h-screen">
-        <PremiumPagePreview business={businessData} />
-      </div>
-    </Layout>
-  );
+  return <Layout><div className="min-h-screen bg-gray-50 px-4 py-8">{business ? <PremiumPreviewClient businessId={business} lang={lang} /> : <div className="mx-auto max-w-2xl rounded-xl bg-white p-8 text-center shadow"><h1 className="text-2xl font-bold text-slate-900">Your Website</h1><p className="mt-3 text-slate-600">Open this preview from your business dashboard.</p><a className="mt-6 inline-flex rounded bg-blue-700 px-4 py-2 font-semibold text-white" href={`/${lang}/dashboard`}>Back to Listing</a></div>}</div></Layout>;
 }

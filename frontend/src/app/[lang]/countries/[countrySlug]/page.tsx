@@ -49,7 +49,7 @@ export async function generateMetadata({
 
   const countryName = country?.name || countrySlug;
   const title = `Businesses in ${countryName}`;
-  const description = `Find local businesses and services in ${countryName} on ListAcross EU. Browse verified listings and discover trusted companies.`;
+  const description = `Find local businesses and services in ${countryName} on ListAcross EU. Browse listed businesses by city and category.`;
 
   return generateSEO(
     {

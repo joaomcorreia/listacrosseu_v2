@@ -6,8 +6,6 @@ import { ReactNode, useEffect, useState } from "react";
 import { normalizeLang } from "@/lib/lang";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
-import ListYourBusinessModal from "./ListYourBusinessModal";
-import { useModal } from "@/hooks/useModal";
 import { useTranslations } from "@/i18n/translations";
 import { debugLog, debugWarn } from "@/lib/debug";
 import { resolveBlogDetailTargetUrl } from "@/lib/blogRouting";
@@ -32,9 +30,6 @@ export default function Layout({
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Modal state
-  const listBusinessModal = useModal();
-
   useEffect(() => {
     function onScroll() {
       setScrolled(window.scrollY > 50);
@@ -273,18 +268,17 @@ export default function Layout({
                   {t.nav.pricing}
                 </Link>
 
-                <button
-                  onClick={listBusinessModal.openModal}
+                <Link
+                  href={`/${currentLang}/list-your-business`}
                   className={[
                     "px-2 py-1 rounded-md transition-colors",
                     useOverlayNavbar
                       ? "text-white/90 hover:bg-white/10 hover:text-white"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                   ].join(" ")}
-                  type="button"
                 >
                   {t.nav.listYourBusiness}
-                </button>
+                </Link>
 
                 <Link
                   href={`/${currentLang}/blog`}
@@ -381,15 +375,13 @@ export default function Layout({
               >
                 {t.nav.pricing}
               </Link>
-              <button
-                onClick={() => {
-                  listBusinessModal.openModal();
-                  setMobileMenuOpen(false);
-                }}
+              <Link
+                href={`/${currentLang}/list-your-business`}
+                onClick={() => setMobileMenuOpen(false)}
                 className="block w-full px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-left"
               >
                 {t.nav.listYourBusiness}
-              </button>
+              </Link>
               <Link
                 href={`/${currentLang}/blog`}
                 onClick={() => setMobileMenuOpen(false)}
@@ -417,31 +409,6 @@ export default function Layout({
       {/* Back to Top Button */}
       <BackToTop />
       
-      {/* List Your Business Modal */}
-      <ListYourBusinessModal
-        isOpen={listBusinessModal.isOpen}
-        onClose={listBusinessModal.closeModal}
-        onSubmit={async (data) => {
-          // Demo submission handler
-          debugLog('List Business Form Data:', data);
-          
-          // Try to submit to API, fallback to demo success
-          try {
-            const response = await fetch('/api/listings/create', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data),
-            });
-            
-            if (!response.ok) throw new Error('API submission failed');
-            
-            alert(t.forms.listBusiness.messages.submitSuccess);
-          } catch (error) {
-            // Fallback for demo
-            alert(t.forms.listBusiness.messages.submitDemoSuccess);
-          }
-        }}
-      />
     </div>
   );
 }

@@ -17,7 +17,7 @@ export async function generateMetadata({
     {
       title: "European Business Directory",
       description:
-        "Find and list local businesses across all EU countries. Free business listings, premium visibility, and comprehensive directory covering 27 EU nations.",
+        "Find and list local businesses across all EU countries with searchable directory listings and owner-managed business pages.",
       canonical: `/${lang}`,
       keywords: [
         "EU business directory",

@@ -21,9 +21,31 @@ from .views import (
     create_claim,
     verify_claim,
 )
+from .dashboard import (
+    DashboardBusinessDetailView,
+    DashboardBusinessesView,
+    DashboardAuthView,
+    DashboardDescriptionAssistView,
+    DashboardLogoutView,
+    DashboardPasswordChangeView,
+    DashboardTrialView,
+    DashboardWebsiteView,
+    DashboardWebsiteTrialView,
+    CreateBusinessView,
+)
 
 
 urlpatterns = [
+    path("dashboard/auth/", DashboardAuthView.as_view(), name="dashboard-auth"),
+    path("dashboard/businesses/", DashboardBusinessesView.as_view(), name="dashboard-businesses"),
+    path("dashboard/businesses/<int:business_id>/", DashboardBusinessDetailView.as_view(), name="dashboard-business-detail"),
+    path("dashboard/businesses/<int:business_id>/trial/", DashboardTrialView.as_view(), name="dashboard-trial"),
+    path("dashboard/businesses/<int:business_id>/website/", DashboardWebsiteView.as_view(), name="dashboard-website"),
+    path("dashboard/businesses/<int:business_id>/website/trial/", DashboardWebsiteTrialView.as_view(), name="dashboard-website-trial"),
+    path("dashboard/password/", DashboardPasswordChangeView.as_view(), name="dashboard-password"),
+    path("dashboard/logout/", DashboardLogoutView.as_view(), name="dashboard-logout"),
+    path("dashboard/description-assist/", DashboardDescriptionAssistView.as_view(), name="dashboard-description-assist"),
+    path("dashboard/create-business/", CreateBusinessView.as_view(), name="dashboard-create-business"),
     path("businesses/featured/", FeaturedBusinessListView.as_view(), name="featured-businesses"),
     path("businesses/search/", BusinessSearchView.as_view(), name="business-search"),
     path("businesses/", BusinessList.as_view(), name="business-list"),

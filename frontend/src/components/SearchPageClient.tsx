@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
 import { normalizeLang } from "@/lib/lang";
 import { useTranslations } from "@/i18n/translations";
 import {
@@ -21,7 +20,9 @@ import {
   type UiTextResponse,
 } from "@/lib/api";
 import SnowBackground from "@/components/SnowBackground";
-import { getBusinessCanonicalPath } from "@/lib/businessUrls";
+import BusinessCard from "@/components/BusinessCard";
+import DirectoryViewToggle, { type DirectoryView } from "@/components/DirectoryViewToggle";
+import DirectoryBusinessList from "@/components/DirectoryBusinessList";
 
 type Option = { label: string; value: string };
 
@@ -55,9 +56,20 @@ export default function SearchPageClient() {
   const [total, setTotal] = useState(0);
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
+  const [view, setView] = useState<DirectoryView>("grid");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("listacrosseu-directory-view");
+    if (saved === "grid" || saved === "list") setView(saved);
+  }, []);
+
+  function changeView(nextView: DirectoryView) {
+    setView(nextView);
+    window.localStorage.setItem("listacrosseu-directory-view", nextView);
+  }
 
 
 
@@ -284,10 +296,16 @@ export default function SearchPageClient() {
 
         {/* Results summary */}
         {total > 0 && (
-          <div className="mb-4 text-xs text-slate-500">
-            {t.forms.search.messages.resultsSummary
-              .replace("{shown}", String(businesses.length))
-              .replace("{total}", String(total))}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-slate-600">
+              {total.toLocaleString()} businesses
+              <span className="ml-2 text-xs text-slate-500">
+                ({t.forms.search.messages.resultsSummary
+                  .replace("{shown}", String(businesses.length))
+                  .replace("{total}", String(total))})
+              </span>
+            </div>
+            <DirectoryViewToggle value={view} onChange={changeView} />
           </div>
         )}
 
@@ -314,89 +332,18 @@ export default function SearchPageClient() {
           </div>
         )}
 
-        {/* Results list */}
+        {/* Results */}
+        {view === "grid" ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {businesses.map((business) => (
+              <BusinessCard key={business.id} business={business as any} lang={lang} />
+            ))}
+          </div>
+        ) : (
+          <DirectoryBusinessList businesses={businesses} lang={lang} />
+        )}
+
         <div className="space-y-4">
-          {businesses.map((b) => {
-            const location =
-              b.city?.name && b.country?.name
-                ? `${b.city.name}, ${b.country.name}`
-                : b.country?.name || b.city?.name || null;
-
-            const detailHref = getBusinessCanonicalPath(b, lang);
-
-            return (
-              <article
-                key={b.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-blue-200 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="flex-1">
-                    <h2 className="text-base font-semibold text-slate-900">
-                      <Link href={detailHref} className="hover:text-blue-600 hover:underline">
-                        {b.name}
-                      </Link>
-                    </h2>
-
-                    {location && (
-                      <div className="mt-1 text-xs text-slate-500">{location}</div>
-                    )}
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {b.is_micro && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                          {t.businessCard.microBadge}
-                        </span>
-                      )}
-
-                      {b.category && (
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
-                          {b.category.name}
-                        </span>
-                      )}
-                    </div>
-
-                    {b.description && (
-                      <p className="mt-3 text-sm text-slate-700" style={{ 
-                        display: '-webkit-box', 
-                        WebkitLineClamp: 2, 
-                        WebkitBoxOrient: 'vertical', 
-                        overflow: 'hidden' 
-                      }}>
-                        {b.description}
-                      </p>
-                    )}
-
-                    {b.address && (
-                      <div className="mt-2 text-xs text-slate-500">
-                        {t.businessCard.address}: {b.address}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    {b.website && (
-                      <a
-                        href={b.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                      >
-                        {t.buttons.visitWebsite}
-                      </a>
-                    )}
-
-                    <Link
-                      href={detailHref}
-                      className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-slate-800 transition-colors"
-                    >
-                      {t.buttons.viewDetails}
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-
           {!loading && businesses.length === 0 && !error && (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <div className="text-4xl mb-4">{t.forms.search.messages.noResultsIcon}</div>
