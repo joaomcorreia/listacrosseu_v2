@@ -33,6 +33,9 @@ export const PUBLIC_API_BASE_URL = requirePublicEnv(
 export const GLOBAL_NOINDEX_ENABLED =
   process.env.NEXT_PUBLIC_STAGING_NOINDEX === "1";
 
+export const GOOGLE_SITE_VERIFICATION =
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim() || "";
+
 export function withPublicApiUrl(path: string): string {
   return `${PUBLIC_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
