@@ -31,6 +31,13 @@ const footerLinks: {
   ],
 };
 
+const visibilityLinks = [
+  { label: 'Business visibility', href: '/business-visibility' },
+  { label: 'AI visibility', href: '/ai-visibility' },
+  { label: 'Promote for free', href: '/promote-your-business-free' },
+  { label: 'Get found online', href: '/get-found-online' },
+];
+
 function AnimatedParticles() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -151,6 +158,19 @@ export default function Footer() {
                   <li key={link.key}>
                     <a href={`/${lang}/blog?category=${encodeURIComponent(link.slug)}`} className="text-sm text-slate-300 transition-colors hover:text-white">
                       {t.footer.blogCategories[link.key]}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="mb-6 text-lg font-semibold text-violet-400">Visibility</h3>
+              <ul className="space-y-3">
+                {visibilityLinks.map((link) => (
+                  <li key={link.href}>
+                    <a href={`/${lang}${link.href}`} className="text-sm text-slate-300 transition-colors hover:text-white">
+                      {link.label}
                     </a>
                   </li>
                 ))}
