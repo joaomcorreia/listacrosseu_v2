@@ -4,14 +4,18 @@ import type { NextRequest } from "next/server";
 const supportedLangs = new Set(["en", "nl", "pt", "fr", "de", "es"]);
 const knownRoutes = new Set([
   "admin",
+  "ai-visibility",
   "blog",
   "business",
   "businesses",
+  "business-visibility",
   "categories",
   "cities",
   "countries",
+  "get-found-online",
   "list-your-business",
   "locations",
+  "promote-your-business-free",
   "search",
   "towns",
   "api",
