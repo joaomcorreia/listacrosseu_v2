@@ -33,6 +33,7 @@ from .dashboard import (
     DashboardWebsiteTrialView,
     CreateBusinessView,
 )
+from .website_editor import DashboardWebsitePublishView
 
 
 urlpatterns = [
@@ -42,6 +43,7 @@ urlpatterns = [
     path("dashboard/businesses/<int:business_id>/trial/", DashboardTrialView.as_view(), name="dashboard-trial"),
     path("dashboard/businesses/<int:business_id>/website/", DashboardWebsiteView.as_view(), name="dashboard-website"),
     path("dashboard/businesses/<int:business_id>/website/trial/", DashboardWebsiteTrialView.as_view(), name="dashboard-website-trial"),
+    path("dashboard/businesses/<int:business_id>/website/publish/", DashboardWebsitePublishView.as_view(), name="dashboard-website-publish"),
     path("dashboard/password/", DashboardPasswordChangeView.as_view(), name="dashboard-password"),
     path("dashboard/logout/", DashboardLogoutView.as_view(), name="dashboard-logout"),
     path("dashboard/description-assist/", DashboardDescriptionAssistView.as_view(), name="dashboard-description-assist"),
