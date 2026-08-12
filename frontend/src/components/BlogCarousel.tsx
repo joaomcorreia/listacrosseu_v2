@@ -7,7 +7,7 @@ import { useTranslations } from "@/i18n/translations";
 import { fetchBlogPosts, type BlogPostListItem } from "@/lib/api";
 import { debugWarn } from "@/lib/debug";
 
-export default function BlogCarousel({ settings: _settings }: { settings?: Record<string, unknown> } = {}) {
+export default function BlogCarousel({ settings = {} }: { settings?: Record<string, unknown> } = {}) {
   const params = useParams();
   const lang = normalizeLang(String(params?.lang || "en"));
   const t = useTranslations(lang);
@@ -19,7 +19,9 @@ export default function BlogCarousel({ settings: _settings }: { settings?: Recor
 
     async function load() {
       try {
-        const data = await fetchBlogPosts({ lang });
+        const category = typeof settings.category === "string" ? settings.category : undefined;
+        const slugs = Array.isArray(settings.slugs) ? settings.slugs.filter((slug): slug is string => typeof slug === "string") : undefined;
+        const data = await fetchBlogPosts({ lang, category, slugs });
         if (!cancelled) {
           setPosts(Array.isArray(data) ? data : []);
         }
@@ -33,7 +35,7 @@ export default function BlogCarousel({ settings: _settings }: { settings?: Recor
     return () => {
       cancelled = true;
     };
-  }, [lang]);
+  }, [lang, settings.category, settings.slugs]);
 
   useEffect(() => {
     const maxSlides = Math.max(0, posts.length - 2);

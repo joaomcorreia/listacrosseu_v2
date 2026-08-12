@@ -36,6 +36,9 @@ export const GLOBAL_NOINDEX_ENABLED =
 export const GOOGLE_SITE_VERIFICATION =
   process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim() || "";
 
+export const STRIPE_GENERATED_WEBSITE_URL =
+  process.env.NEXT_PUBLIC_STRIPE_GENERATED_WEBSITE_URL?.trim() || "";
+
 export function withPublicApiUrl(path: string): string {
   return `${PUBLIC_API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }

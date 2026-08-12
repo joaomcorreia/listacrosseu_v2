@@ -2,6 +2,15 @@ from rest_framework import serializers
 from listings.models import Country, City, Town, Category, Business, BusinessClaimRequest
 
 
+def normalize_keywords(value):
+    """Return the public keyword contract: a clean list of non-empty strings."""
+    if isinstance(value, list):
+        return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return []
+
+
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
@@ -106,6 +115,7 @@ class BusinessSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        data["keywords"] = normalize_keywords(instance.keywords)
         dashboard = (instance.premium_sidebar or {}).get("_dashboard", {})
         data.update({
             "region": dashboard.get("region", ""),
@@ -125,6 +135,17 @@ class BusinessSerializer(serializers.ModelSerializer):
         for field, default in defaults.items():
             if visibility.get(field, default) is False:
                 data[field] = None if field == "city" else ""
+
+        if instance.tier == "free":
+            # Unclaimed free listings expose directory discovery data only.
+            # Rich contact/profile fields become available after claiming.
+            for field in (
+                "address", "address_line1", "postal_code", "latitude", "longitude",
+                "website", "phone", "email", "owner_name", "region", "logo_url",
+                "image_url", "premium_content", "premium_images",
+                "premium_sidebar", "employee_count",
+            ):
+                data[field] = None if field in {"latitude", "longitude"} else ""
         return data
 
     def get_country_slug(self, obj):

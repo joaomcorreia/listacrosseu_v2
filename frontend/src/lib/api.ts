@@ -254,11 +254,13 @@ export type SidebarItem = {
 export async function fetchBlogPosts(params: {
   lang: string;
   category?: string;
+  slugs?: string[];
   search?: string;
 }): Promise<BlogPostListResponse> {
   const sp = new URLSearchParams();
   sp.set("lang", params.lang);
   if (params.category) sp.set("category", params.category);
+  if (params.slugs?.length) sp.set("slugs", params.slugs.join(","));
   if (params.search) sp.set("search", params.search);
 
   const res = await fetch(

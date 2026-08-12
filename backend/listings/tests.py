@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -121,6 +123,9 @@ class DashboardOwnershipTests(TestCase):
         response = self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/trial/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["website"]["trial"]["status"], "trial")
+        started = datetime.fromisoformat(response.data["website"]["trial"]["started_at"])
+        ends = datetime.fromisoformat(response.data["website"]["trial"]["ends_at"])
+        self.assertEqual((ends - started).days, 30)
 
     def test_authenticated_user_can_create_owned_business_and_duplicate_is_blocked(self):
         self.client.force_authenticate(self.owner)

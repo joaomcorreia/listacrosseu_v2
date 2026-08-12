@@ -16,6 +16,9 @@ import BusinessCard from "@/components/BusinessCard";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import AdPlaceholder from "@/components/ads/AdPlaceholder";
 import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
+import DirectorySidebarLayout from "@/components/DirectorySidebarLayout";
+import Sidebar from "@/components/Sidebar";
+import { useDirectoryPageEditor } from "@/components/DirectoryPageEditor";
 
 interface CountryPageClientProps {
   countrySlug: string;
@@ -38,6 +41,19 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showAllTypes, setShowAllTypes] = useState(false);
   const listingsRef = useRef<HTMLDivElement | null>(null);
+  const directoryEditor = useDirectoryPageEditor({
+    scope: "country",
+    slug: countrySlug,
+    defaults: {
+      hero_image: "",
+      title: countrySlug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      subtitle: "Explore local businesses and services across Europe.",
+      intro: "",
+      cta_label: "",
+      cta_href: "",
+    },
+  });
+  const { content, editable, editMode, toolbar } = directoryEditor;
   
   const limit = 20;
   const errorMessage = t.directory.country.errorLoad;
@@ -300,14 +316,24 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative isolate -mt-16 pt-16 bg-gradient-to-r from-blue-600 to-blue-700">
+      <section
+        className="relative isolate -mt-16 overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 bg-cover bg-center"
+        style={content.hero_image ? { backgroundImage: `linear-gradient(90deg, rgba(7, 28, 86, 0.88), rgba(12, 66, 154, 0.68)), url(${content.hero_image})` } : undefined}
+      >
         <div className="mx-auto max-w-7xl px-4 py-20">
           <div className="text-center text-white">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-              {country.name}
-            </h1>
+            {editable("title", content.title || country.name, "text-4xl font-bold tracking-tight sm:text-5xl", "h1")}
             <p className="mt-6 text-xl leading-8 text-blue-100">
-              {format(t.directory.country.heroSubtitle, { country: country.name })}
+            {editable("subtitle", content.subtitle || format(t.directory.country.heroSubtitle, { country: country.name }), "text-xl leading-8 text-blue-100", "p", true)}
+            {content.cta_label && (editMode ? (
+              <div className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-blue-800">
+                {editable("cta_label", content.cta_label, "", "span")}
+              </div>
+            ) : (
+              <a href={content.cta_href || `/${lang}/list-your-business`} className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-50">
+                {content.cta_label}
+              </a>
+            ))}
             </p>
             {businesses && (
               <div className="mt-4 text-blue-100">
@@ -335,10 +361,18 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
         </div>
       </div>
 
-      {/* Popular Business Types */}
-      {categoryCounts.length > 0 && (
-        <section className="py-8">
-          <div className="mx-auto max-w-7xl px-4">
+      <DirectorySidebarLayout sidebar={<Sidebar content="ads" context={{ countrySlug }} />}>
+        {content.intro && (
+          <section className="pt-8">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              {editable("intro", content.intro, "text-base leading-7 text-slate-700", "p", true)}
+            </div>
+          </section>
+        )}
+        {/* Popular Business Types */}
+        {categoryCounts.length > 0 && (
+          <section className="py-8">
+            <div className="w-full">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <h2 className="text-2xl font-semibold text-gray-900">
                 {format(t.directory.country.popularTypesTitle, { country: country.name })}
@@ -387,20 +421,20 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
                 </button>
               </div>
             )}
+            </div>
+          </section>
+        )}
+
+        {/* Inline Ad */}
+        <div className="py-8">
+          <div className="w-full">
+            <AdPlaceholder variant="inline" />
           </div>
-        </section>
-      )}
-
-      {/* Inline Ad */}
-      <div className="py-8">
-        <div className="mx-auto max-w-7xl px-4">
-          <AdPlaceholder variant="inline" />
         </div>
-      </div>
 
-      {/* Main Content */}
-      <section className="py-16" ref={listingsRef}>
-        <div className="mx-auto max-w-7xl px-4">
+        {/* Main Content */}
+        <section className="py-8" ref={listingsRef}>
+          <div className="w-full">
           {businesses && filteredBusinesses.length > 0 ? (
             <>
               <div className="mb-6 text-sm text-slate-600">
@@ -411,7 +445,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
                 })}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
                 {filteredBusinesses.map((business) => (
                   <div
                     key={business.id}
@@ -474,14 +508,16 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
               </p>
             </div>
           )}
-        </div>
-      </section>
+          </div>
+        </section>
+      </DirectorySidebarLayout>
 
       <BlogPostsSlider
         lang={lang}
         countrySlug={country.slug}
         countryName={country.name}
       />
+      {toolbar}
     </div>
   );
 }

@@ -96,8 +96,7 @@ class BlogPostTranslationInline(admin.StackedInline):
     formset = BlogPostTranslationInlineFormSet
 
     def has_add_permission(self, request, obj=None):
-        # Prevent creating new inline rows on the add view to avoid duplicates.
-        return obj is not None
+        return True
 
 
 @admin.register(BlogPost)

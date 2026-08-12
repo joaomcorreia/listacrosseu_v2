@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { PUBLIC_API_BASE_URL } from '@/lib/env.public';
+import { GENERATED_WEBSITE_PRODUCT } from '@/lib/product-config';
 import InlineEditable from './InlineEditable';
 
 export type GeneratedWebsite = {
@@ -39,6 +40,11 @@ function contrastRatio(first: string, second: string) {
   const light = Math.max(relativeLuminance(first), relativeLuminance(second));
   const dark = Math.min(relativeLuminance(first), relativeLuminance(second));
   return (light + 0.05) / (dark + 0.05);
+}
+
+function csrfToken() {
+  if (typeof document === 'undefined') return '';
+  return document.cookie.split('; ').find((cookie) => cookie.startsWith('csrftoken='))?.split('=').slice(1).join('=') || '';
 }
 
 function SectionTitle({ eyebrow, title, primary }: { eyebrow: string; title: string; primary: string }) {
@@ -114,7 +120,7 @@ export default function GeneratedWebsiteTemplate({ initial, businessId, lang }: 
   async function saveDraft() {
     setSaving(true); setNotice('');
     const response = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/businesses/${businessId}/website/`, {
-      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify({ theme: site.theme, sections: site.sections }),
     });
     if (response.ok) { setDirty(false); setNotice('Website draft saved.'); }
@@ -124,9 +130,9 @@ export default function GeneratedWebsiteTemplate({ initial, businessId, lang }: 
 
   async function startTrial() {
     setTrialStarting(true); setNotice('');
-    const response = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/businesses/${businessId}/website/trial/`, { method: 'POST', credentials: 'include' });
+    const response = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/businesses/${businessId}/website/trial/`, { method: 'POST', credentials: 'include', headers: { 'X-CSRFToken': csrfToken() } });
     const data = await response.json().catch(() => ({}));
-    if (response.ok) { setDraft(data); setDirty(false); setNotice('Your 14-day free trial has started.'); } else setNotice(data.detail || 'Unable to start your trial.');
+    if (response.ok) { setDraft(data); setDirty(false); setNotice(`Your ${GENERATED_WEBSITE_PRODUCT.trialLabel} has started.`); } else setNotice(data.detail || 'Unable to start your trial.');
     setTrialStarting(false);
   }
 
@@ -161,7 +167,7 @@ export default function GeneratedWebsiteTemplate({ initial, businessId, lang }: 
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Website editor</p><p className="mt-1 text-sm font-semibold">{activeField ? `Editing ${activeField}` : editorEnabled ? 'Click text on the page to edit it.' : 'Preview mode'}</p></div><button type="button" onClick={() => setEditorEnabled(!editorEnabled)} className="text-xs font-bold text-blue-700">{editorEnabled ? 'Preview' : 'Edit'}</button></div>
       <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setShowAppearance(!showAppearance)} className="rounded border border-slate-200 px-3 py-2 text-xs font-bold">Appearance</button><button type="button" onClick={saveDraft} disabled={saving || Boolean(colorError) || !dirty} className="rounded bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">{saving ? 'Saving...' : dirty ? 'Save draft' : 'Saved'}</button></div>
       {showAppearance && <div className="mt-4 space-y-3 border-t pt-3"><p className="text-xs text-slate-600">Choose any color, or enter a color code.</p><div className="grid grid-cols-4 gap-2">{PALETTES.map(([p, d]) => <button key={p} type="button" aria-label={`Use ${p} palette`} onClick={() => { updateTheme('primary', p); updateTheme('dark', d); }} className="h-8 rounded-full border-2 border-white ring-1 ring-slate-300" style={{ background: `linear-gradient(90deg, ${p} 50%, ${d} 50%)` }} />)}</div><div className="grid grid-cols-2 gap-2"><label className="text-xs font-semibold">Accent<input type="color" value={primary} onChange={(event) => updateTheme('primary', event.target.value)} className="mt-1 h-10 w-full cursor-pointer rounded border p-1" /><input type="text" value={primaryInput} onChange={(event) => updateCustomColor('primary', event.target.value)} placeholder="#2563eb" className="mt-1 w-full rounded border px-2 py-1 text-xs font-normal" /></label><label className="text-xs font-semibold">Dark background<input type="color" value={dark} onChange={(event) => updateTheme('dark', event.target.value)} className="mt-1 h-10 w-full cursor-pointer rounded border p-1" /><input type="text" value={darkInput} onChange={(event) => updateCustomColor('dark', event.target.value)} placeholder="#0f172a" className="mt-1 w-full rounded border px-2 py-1 text-xs font-normal" /></label></div>{colorError && <p className="text-xs font-semibold text-red-600">{colorError}</p>}<button type="button" onClick={resetSuggested} className="text-xs font-bold text-slate-600 underline">Reset to suggested color</button></div>}
-      <div className="mt-3 space-y-2"><button type="button" onClick={startTrial} disabled={trialStarting || site.trial.status === 'trial'} className="w-full rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-60" style={{ backgroundColor: primary }}>{site.trial.status === 'trial' ? 'Trial active' : trialStarting ? 'Starting...' : 'Start my 14-day free trial'}</button><a href={`/${lang}/dashboard`} className="block text-center text-xs font-bold text-slate-600">Back to Listing</a>{notice && <p className="text-center text-xs text-slate-600">{notice}</p>}</div>
+      <div className="mt-3 space-y-2"><button type="button" onClick={startTrial} disabled={trialStarting || site.trial.status === 'trial'} className="w-full rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-60" style={{ backgroundColor: primary }}>{site.trial.status === 'trial' ? 'Trial active' : trialStarting ? 'Starting...' : `Start ${GENERATED_WEBSITE_PRODUCT.trialLabel}`}</button><a href={`/${lang}/dashboard`} className="block text-center text-xs font-bold text-slate-600">Back to Listing</a>{notice && <p className="text-center text-xs text-slate-600">{notice}</p>}</div>
     </aside>
   </div>;
 }

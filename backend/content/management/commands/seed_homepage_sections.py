@@ -33,7 +33,7 @@ class Command(BaseCommand):
                 'cta_secondary_label': 'Browse Categories',
                 'cta_secondary_href': '/categories',
                 'settings': {
-                    'show_snow': True,
+                    'show_snow': False,
                     'snow_intensity': 'medium'
                 }
             },
@@ -121,7 +121,8 @@ class Command(BaseCommand):
                 'cta_label': 'Read All Articles',
                 'cta_href': '/blog',
                 'settings': {
-                    'posts_count': 3,
+                    'posts_count': 6,
+                    'category': 'insights',
                     'show_carousel': True
                 }
             }

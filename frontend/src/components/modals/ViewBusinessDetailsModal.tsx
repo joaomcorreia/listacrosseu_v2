@@ -47,7 +47,8 @@ interface Business {
   website?: string;
   phone?: string;
   description?: string;
-  keywords?: string[];
+  // API data can be legacy JSON; normalize before using array methods.
+  keywords?: unknown;
 }
 
 interface ViewBusinessDetailsModalProps {
@@ -85,13 +86,26 @@ function getLocationString(business: Business): string {
   return parts.join(', ');
 }
 
+function normalizeKeywords(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((keyword): keyword is string => typeof keyword === 'string')
+      .map((keyword) => keyword.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((keyword) => keyword.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export default function ViewBusinessDetailsModal({
   isOpen,
   onClose,
   business,
 }: ViewBusinessDetailsModalProps) {
   const address = business.address_line1 || business.address || '';
-  const keywords = business.keywords?.filter(Boolean) || [];
+  const keywords = normalizeKeywords(business.keywords);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Business details" maxWidth="4xl">

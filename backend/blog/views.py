@@ -81,6 +81,12 @@ class BlogPostViewSet(viewsets.ReadOnlyModelViewSet):
                 translations__language=request_language,
                 translations__is_published=True,
             )
+        category_key = self.request.query_params.get("category")
+        if category_key:
+            queryset = queryset.filter(categories__key=category_key)
+        slugs = [slug.strip() for slug in self.request.query_params.get("slugs", "").split(",") if slug.strip()]
+        if slugs:
+            queryset = queryset.filter(slug__in=slugs)
         return queryset.distinct()
 
     def get_serializer(self, *args, **kwargs):

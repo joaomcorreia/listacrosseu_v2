@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import SnowOverlay from "@/components/effects/SnowOverlay";
 import { useTranslations } from "@/i18n/translations";
 import { fetchBusinesses, fetchCountriesWithStats } from "@/lib/api/listings";
+import { fetchHeroEffectSettings } from "@/lib/api";
 
 type Slide = {
   title: string;
@@ -60,12 +61,23 @@ export default function HomeHero() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [businessCount, setBusinessCount] = useState<number | null>(null);
   const [countryCounts, setCountryCounts] = useState<Array<{ name: string; business_count: number }>>([]);
+  const [snowEnabled, setSnowEnabled] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % slides.length);
     }, 5000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHeroEffectSettings().then((settings) => {
+      if (!cancelled) setSnowEnabled(settings.enabled);
+    }).catch(() => {
+      if (!cancelled) setSnowEnabled(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -93,7 +105,7 @@ export default function HomeHero() {
     { title: t.hero.title, subtitle: businessCount === null ? "Explore businesses across Europe" : `Explore ${businessCount.toLocaleString()} listed businesses across Europe` },
     { title: t.hero.connectSmes, subtitle: t.hero.connectSmesSubtitle },
     { title: t.hero.listBusiness, subtitle: t.hero.listBusinessSubtitle },
-    { title: "Create your business website", subtitle: "Start with a free 14-day trial after claiming or creating a listing" },
+    { title: "Create your business website", subtitle: "Start with 30 days free after claiming or creating a listing" },
   ];
 
   return (
@@ -108,7 +120,7 @@ export default function HomeHero() {
           backgroundPosition: "center",
         }}
       />
-      <SnowOverlay />
+      {snowEnabled && <SnowOverlay />}
 
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-24 -right-12 h-64 w-64 rounded-full bg-purple-500/20 blur-3xl" />
@@ -152,10 +164,10 @@ export default function HomeHero() {
               {t.hero.exploreBusiness}
             </Link>
             <Link
-              href={`/${lang}/list-your-business`}
+              href={`/${lang}/list-your-business-free`}
               className="inline-flex items-center rounded-full bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow hover:bg-purple-500"
             >
-              {t.nav.listYourBusiness}
+              {t.nav.listYourBusiness === "List Your Business" ? "List Your Business Free" : t.nav.listYourBusiness}
             </Link>
           </div>
 

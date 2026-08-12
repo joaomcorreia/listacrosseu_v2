@@ -15,6 +15,7 @@ import { getInfoBoxes } from "@/content/infoboxes";
 import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 import DirectoryViewToggle, { type DirectoryView } from "@/components/DirectoryViewToggle";
 import DirectoryBusinessList from "@/components/DirectoryBusinessList";
+import { useDirectoryPageEditor } from "@/components/DirectoryPageEditor";
 
 interface CategoryDetailClientProps {
   categorySlug: string;
@@ -33,6 +34,19 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [view, setView] = useState<DirectoryView>("grid");
+  const directoryEditor = useDirectoryPageEditor({
+    scope: "category",
+    slug: categorySlug,
+    defaults: {
+      hero_image: "",
+      title: categorySlug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      subtitle: "Explore businesses in this category across Europe.",
+      intro: "",
+      cta_label: "",
+      cta_href: "",
+    },
+  });
+  const { content, editable, editMode, toolbar } = directoryEditor;
 
   const limit = 24;
   const format = (template: string, values: Record<string, string | number>) =>
@@ -204,21 +218,12 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative isolate -mt-16 pt-16 bg-gradient-to-r from-purple-600 to-purple-700">
+      <section className="relative isolate -mt-16 overflow-hidden bg-gradient-to-r from-purple-600 to-purple-700 bg-cover bg-center" style={content.hero_image ? { backgroundImage: `linear-gradient(90deg, rgba(54, 20, 103, 0.88), rgba(126, 34, 206, 0.68)), url(${content.hero_image})` } : undefined}>
         <div className="mx-auto max-w-6xl px-4 py-20">
           <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-              {category.name}
-            </h1>
-            <p className="mt-6 text-xl leading-8 text-purple-100">
-              {businesses?.total ? 
-                format(categoriesText.heroCount, {
-                  count: businesses.total.toLocaleString(),
-                  category: category.name,
-                }) :
-                format(categoriesText.heroTitle, { category: category.name })
-              }
-            </p>
+            {editable("title", content.title || category.name, "text-4xl font-bold tracking-tight text-white sm:text-5xl", "h1")}
+            {editable("subtitle", content.subtitle || (businesses?.total ? format(categoriesText.heroCount, { count: businesses.total.toLocaleString(), category: category.name }) : format(categoriesText.heroTitle, { category: category.name })), "mt-6 text-xl leading-8 text-purple-100", "p", true)}
+            {content.cta_label && (editMode ? <div className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-purple-800">{editable("cta_label", content.cta_label)}</div> : <Link href={content.cta_href || `/${lang}/list-your-business`} className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-purple-800 shadow-sm hover:bg-purple-50">{content.cta_label}</Link>)}
             <div className="mt-8">
               <Link
                 href={`/${lang}/categories`}
@@ -237,6 +242,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
           <div className="lg:grid lg:grid-cols-4 lg:gap-8">
             {/* Main content area */}
             <div className="lg:col-span-3">
+              {content.intro && <div className="mb-10 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">{editable("intro", content.intro, "text-base leading-7 text-slate-700", "p", true)}</div>}
               {infoBoxes && (
                 <div className="mb-10">
                   <InfoBoxes
@@ -362,6 +368,7 @@ export default function CategoryDetailClient({ categorySlug, lang }: CategoryDet
       </section>
 
       <BlogPostsSlider lang={lang} mode="eu" />
+      {toolbar}
     </div>
   );
 }
