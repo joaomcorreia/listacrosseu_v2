@@ -6,6 +6,8 @@ export const translations = {
       pricing: "Pricing",
       blog: "Blog",
       listYourBusiness: "List Your Business",
+      generatedWebsite: "Generated Website",
+      tryFree: "Try Free",
       countries: "Countries",
       cities: "Cities",
       categories: "Categories",

@@ -1,8 +1,19 @@
 from django.urls import path
-from .views import PageView, AdminSectionListView, AdminSectionUpdateView, AdminSectionReorderView, AdminAuthView, SectionBusinessPicksView
+from .views import (
+    PageView,
+    DirectoryContentView,
+    AdminDirectoryContentView,
+    AdminSectionListView,
+    AdminSectionUpdateView,
+    AdminSectionReorderView,
+    AdminAuthView,
+    SectionBusinessPicksView,
+)
 
 urlpatterns = [
     path('pages/<str:key>/', PageView.as_view(), name='page-detail'),
+    path('content/directory/<str:scope>/<slug:slug>/', DirectoryContentView.as_view(), name='directory-content'),
+    path('admin/directory/<str:scope>/<slug:slug>/', AdminDirectoryContentView.as_view(), name='admin-directory-content'),
     path('admin/auth/', AdminAuthView.as_view(), name='admin-auth'),
     path('admin/pages/<str:key>/sections/', AdminSectionListView.as_view(), name='admin-sections'),
     path('admin/sections/<int:pk>/', AdminSectionUpdateView.as_view(), name='admin-section-update'),

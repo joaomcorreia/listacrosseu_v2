@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
 import { normalizeLang } from "@/lib/lang";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
@@ -10,6 +10,7 @@ import { useTranslations } from "@/i18n/translations";
 import { debugLog, debugWarn } from "@/lib/debug";
 import { resolveBlogDetailTargetUrl } from "@/lib/blogRouting";
 import LanguageSelector from "@/components/LanguageSelector";
+import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 
 type LayoutProps = {
   children: ReactNode;
@@ -27,18 +28,7 @@ export default function Layout({
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams();
-  const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 50);
-    }
-
-    onScroll(); // initialize
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   // pathname example: "/en/search" or "/nl/blog/xyz"
   const segments = pathname.split("/").filter(Boolean); // ["en", "search"]
@@ -108,29 +98,21 @@ export default function Layout({
     { name: t.nav.browseCategories.beauty, slug: "beauty" },
   ];
 
-  // Determine navbar appearance based on headerVariant and scroll
-  const useOverlayNavbar = !scrolled;
-  
-  // Check if this is an inner page (not homepage)
-  const isInnerPage = pathname !== `/${currentLang}` && pathname !== `/${currentLang}/`;
+  const showBlogSlider = ![
+    "/admin", "/dashboard", "/account", "/login", "/signup", "/verify",
+    "/checkout", "/payment", "/editor",
+  ].some((route) => pathname.includes(route));
 
   // Debug log to identify this component
   debugLog("NAVBAR COMPONENT:", "src/components/Layout.tsx");
 
   return (
-    <div className={`min-h-screen ${isInnerPage ? 'bg-slate-950' : 'bg-slate-50'}`}>
-      {/* Dark backdrop for inner pages to prevent white showing behind transparent header */}
-      {isInnerPage && (
-        <div className="fixed inset-x-0 top-0 h-32 bg-gradient-to-r from-blue-600 to-blue-700 -z-10" />
-      )}
-      
+    <div className="min-h-screen bg-slate-50">
       {/* Fixed Header */}
       <header
         className={[
           "fixed inset-x-0 z-40 border-b transition-all duration-200",
-          useOverlayNavbar
-            ? "bg-transparent text-white border-transparent"
-            : "bg-white/95 text-slate-900 border-slate-200 shadow-md backdrop-blur",
+          "bg-white text-slate-900 border-slate-200 shadow-sm",
           withTopHeader ? "top-8" : "top-0",
         ].join(" ")}
       >
@@ -152,29 +134,11 @@ export default function Layout({
             {/* center: nav */}
             <div className="hidden items-center justify-center gap-6 md:flex">
               <nav className="flex items-center gap-3 text-sm">
-                <Link
-                  href={`/${currentLang}`}
-                  className={[
-                    "px-2 py-1 rounded-md transition-colors",
-                    pathname === `/${currentLang}`
-                      ? useOverlayNavbar
-                        ? "bg-white/20 text-white"
-                        : "bg-blue-50 text-blue-700"
-                      : useOverlayNavbar
-                        ? "text-white/90 hover:bg-white/10 hover:text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                  ].join(" ")}
-                >
-                  {t.nav.home}
-                </Link>
-
                 <div className="relative group">
                   <button
                     className={[
                       "px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1",
-                      useOverlayNavbar
-                        ? "text-white/90 hover:bg-white/10 hover:text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                      "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                     ].join(" ")}
                     type="button"
                   >
@@ -253,48 +217,30 @@ export default function Layout({
                 </div>
 
                 <Link
-                  href={`/${currentLang}/pricing`}
+                  href={`/${currentLang}/list-your-business-free`}
                   className={[
                     "px-2 py-1 rounded-md transition-colors",
                     pathname === `/${currentLang}/pricing`
-                      ? useOverlayNavbar
-                        ? "bg-white/20 text-white"
-                        : "bg-blue-50 text-blue-700"
-                      : useOverlayNavbar
-                        ? "text-white/90 hover:bg-white/10 hover:text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                  ].join(" ")}
-                >
-                  {t.nav.pricing}
-                </Link>
-
-                <Link
-                  href={`/${currentLang}/list-your-business`}
-                  className={[
-                    "px-2 py-1 rounded-md transition-colors",
-                    useOverlayNavbar
-                      ? "text-white/90 hover:bg-white/10 hover:text-white"
+                      ? "bg-blue-50 text-blue-700"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                   ].join(" ")}
                 >
-                  {t.nav.listYourBusiness}
+                  {t.nav.listYourBusiness === "List Your Business" ? "List Your Business Free" : t.nav.listYourBusiness}
                 </Link>
 
                 <Link
-                  href={`/${currentLang}/blog`}
+                  href={`/${currentLang}/generated-business-website`}
                   className={[
                     "px-2 py-1 rounded-md transition-colors",
-                    pathname === `/${currentLang}/blog`
-                      ? useOverlayNavbar
-                        ? "bg-white/20 text-white"
-                        : "bg-blue-50 text-blue-700"
-                      : useOverlayNavbar
-                        ? "text-white/90 hover:bg-white/10 hover:text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                    "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                   ].join(" ")}
                 >
-                  {t.nav.blog}
+                  <span className="inline-flex items-center gap-2">{t.nav.generatedWebsite || "Generated Website"}<span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{t.nav.tryFree || "Try Free"}</span></span>
                 </Link>
+
+                <Link href={`/${currentLang}/pricing`} className="px-2 py-1 rounded-md transition-colors text-slate-600 hover:bg-slate-100 hover:text-slate-900">{t.nav.pricing}</Link>
+                <Link href={`/${currentLang}/blog`} className="px-2 py-1 rounded-md transition-colors text-slate-600 hover:bg-slate-100 hover:text-slate-900">{t.nav.blog}</Link>
+
               </nav>
 
             </div>
@@ -304,9 +250,7 @@ export default function Layout({
               <div className="hidden md:block">
                 <LanguageSelector
                   buttonClassName={
-                    useOverlayNavbar
-                      ? "text-white/90 hover:bg-white/10"
-                      : "text-slate-700 hover:bg-slate-100"
+                    "text-slate-700 hover:bg-slate-100"
                   }
                 />
               </div>
@@ -314,9 +258,7 @@ export default function Layout({
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className={[
                   "md:hidden p-2 rounded-md transition-colors",
-                  useOverlayNavbar
-                    ? "text-white hover:bg-white/10"
-                    : "text-slate-600 hover:bg-slate-100",
+                    "text-slate-600 hover:bg-slate-100",
                 ].join(" ")}
                 aria-label={toggleMenuLabel}
               >
@@ -327,9 +269,7 @@ export default function Layout({
               <div className="md:hidden">
                 <LanguageSelector
                   buttonClassName={
-                    useOverlayNavbar
-                      ? "text-white/90 hover:bg-white/10"
-                      : "text-slate-700 hover:bg-slate-100"
+                    "text-slate-700 hover:bg-slate-100"
                   }
                 />
               </div>
@@ -355,13 +295,6 @@ export default function Layout({
           >
             <div className="px-4 py-2 space-y-1">
               <Link
-                href={`/${currentLang}`}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
-              >
-                {t.nav.home}
-              </Link>
-              <Link
                 href={`/${currentLang}/countries`}
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
@@ -369,26 +302,14 @@ export default function Layout({
                 {t.nav.browse}
               </Link>
               <Link
-                href={`/${currentLang}/pricing`}
+                href={`/${currentLang}/list-your-business-free`}
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
               >
-                {t.nav.pricing}
+                {t.nav.listYourBusiness === "List Your Business" ? "List Your Business Free" : t.nav.listYourBusiness}
               </Link>
-              <Link
-                href={`/${currentLang}/list-your-business`}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block w-full px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-left"
-              >
-                {t.nav.listYourBusiness}
-              </Link>
-              <Link
-                href={`/${currentLang}/blog`}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
-              >
-                {t.nav.blog}
-              </Link>
+              <Link href={`/${currentLang}/generated-business-website`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50">{t.nav.generatedWebsite || "Generated Website"} <span className="ml-2 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{t.nav.tryFree || "Try Free"}</span></Link>
+              <Link href={`/${currentLang}/blog`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50">{t.nav.blog}</Link>
             </div>
           </div>
         </div>
@@ -398,10 +319,12 @@ export default function Layout({
       <main
         className={`${
           withTopHeader ? "pt-[96px]" : "pt-[64px]"
-        } transition-all duration-200 ${isInnerPage ? "bg-slate-50" : ""}`}
+        } transition-all duration-200`}
       >
         {children}
       </main>
+
+      {showBlogSlider && <BlogPostsSlider lang={currentLang} />}
 
       {/* Footer */}
       <Footer />

@@ -38,6 +38,15 @@ const visibilityLinks = [
   { label: 'Get found online', href: '/get-found-online' },
 ];
 
+const directoryLinks = [
+  { label: 'List your business free', href: '/list-your-business-free' },
+  { label: 'Belgium free listings', href: '/free-business-listing-belgium' },
+  { label: 'Antwerp businesses', href: '/free-business-listing-antwerp' },
+  { label: 'Anderlecht businesses', href: '/free-business-listing-anderlecht' },
+  { label: 'Generated Business Website', href: '/generated-business-website' },
+  { label: 'Pricing', href: '/pricing' },
+];
+
 function AnimatedParticles() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -187,6 +196,13 @@ export default function Footer() {
                     </a>
                   </li>
                 ))}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="mb-6 text-lg font-semibold text-amber-300">Directory</h3>
+              <ul className="space-y-3">
+                {directoryLinks.map((link) => <li key={link.href}><a href={`/${lang}${link.href}`} className="text-sm text-slate-300 transition-colors hover:text-white">{link.label}</a></li>)}
               </ul>
             </div>
           </div>

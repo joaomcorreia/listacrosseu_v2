@@ -335,7 +335,7 @@ class DashboardWebsiteTrialView(APIView):
         if trial.get("status") == "trial":
             return Response(_website_response(business))
         started = timezone.now()
-        ends = started + timedelta(days=14)
+        ends = started + timedelta(days=30)
         trial.update({"status": "trial", "started_at": started.isoformat(), "ends_at": ends.isoformat()})
         draft["trial"] = trial
         draft["status"] = "trial"

@@ -5,6 +5,7 @@ import { generateSEO } from "@/lib/seo";
 import StructuredData from "@/components/StructuredData";
 import { generateWebsiteSchema } from "@/lib/schema";
 import HtmlLang from "@/components/HtmlLang";
+import { ENABLE_AI_ASSISTANT } from "@/lib/feature-flags";
 
 export async function generateMetadata({
   params,
@@ -45,7 +46,7 @@ export default async function LangLayout({
     <>
       <HtmlLang lang={normalizedLang} />
       {children}
-      <ListyWidget />
+      {ENABLE_AI_ASSISTANT && <ListyWidget />}
       <StructuredData data={generateWebsiteSchema(normalizedLang)} />
     </>
   );

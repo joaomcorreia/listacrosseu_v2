@@ -3,8 +3,6 @@ import SectionRenderer from "@/components/sections/SectionRenderer";
 import AdPlaceholder from "@/components/ads/AdPlaceholder";
 import { fetchPage, type PageData } from "@/lib/api";
 import FlagCarousel from "@/components/FlagCarousel";
-import BlogCarousel from "@/components/BlogCarousel";
-import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 
 interface HomeLangPageProps {
   params: Promise<{
@@ -71,8 +69,6 @@ export default async function HomeLangPage({ params }: HomeLangPageProps) {
             <AdPlaceholder variant="banner" />
           </div>
         </div>
-        <BlogCarousel />
-        <BlogPostsSlider lang={lang} mode="eu" />
       </Layout>
     </>
   );

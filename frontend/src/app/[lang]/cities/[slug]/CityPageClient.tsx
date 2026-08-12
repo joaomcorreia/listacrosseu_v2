@@ -7,9 +7,13 @@ import BusinessCard from '@/components/BusinessCard';
 import PopularBusinessTypes from '@/components/PopularBusinessTypes';
 import AdPlaceholder from '@/components/ads/AdPlaceholder';
 import BlogPostsSlider from '@/components/blog/BlogPostsSlider';
-import { MapPin, Building2, ArrowLeft } from 'lucide-react';
+import { MapPin, Building2 } from 'lucide-react';
 import { useTranslations } from '@/i18n/translations';
 import Link from 'next/link';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import DirectorySidebarLayout from '@/components/DirectorySidebarLayout';
+import Sidebar from '@/components/Sidebar';
+import { useDirectoryPageEditor } from '@/components/DirectoryPageEditor';
 
 interface Props {
   lang: string;
@@ -38,6 +42,29 @@ export default function CityPageClient({ lang, slug }: Props) {
     offset: 0,
   });
 
+  // Convert slug to display name (simple capitalization)
+  const getCityDisplayName = (citySlug: string): string => {
+    if (!citySlug) return '';
+    return citySlug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const directoryEditor = useDirectoryPageEditor({
+    scope: 'city',
+    slug,
+    defaults: {
+      hero_image: '',
+      title: `Businesses in ${getCityDisplayName(slug)}`,
+      subtitle: 'Discover local businesses and services in this city.',
+      intro: '',
+      cta_label: '',
+      cta_href: '',
+    },
+  });
+  const { content, editable, editMode, toolbar } = directoryEditor;
+
   const limit = 20;
   const format = (template: string, values: Record<string, string | number>) =>
     Object.entries(values).reduce(
@@ -45,15 +72,6 @@ export default function CityPageClient({ lang, slug }: Props) {
         result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value)),
       template,
     );
-
-  // Convert slug to display name (simple capitalization)
-  const getCityDisplayName = (slug: string): string => {
-    if (!slug) return '';
-    return slug
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
 
   const loadBusinesses = async (newOffset = 0) => {
     try {
@@ -139,25 +157,25 @@ export default function CityPageClient({ lang, slug }: Props) {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative isolate -mt-16 pt-16 bg-gradient-to-r from-[#0a3cff] to-[#0041b8] text-white">
+      <section
+        className="relative isolate -mt-16 overflow-hidden bg-gradient-to-r from-[#0a3cff] to-[#0041b8] bg-cover bg-center text-white"
+        style={content.hero_image ? { backgroundImage: `linear-gradient(90deg, rgba(5, 31, 104, 0.88), rgba(0, 65, 184, 0.68)), url(${content.hero_image})` } : undefined}
+      >
         <div className="mx-auto max-w-7xl px-4 py-12">
-          {/* Breadcrumb */}
-          <div className="mb-6">
-            <Link
-              href={`/${lang}/cities`}
-              className="inline-flex items-center text-blue-100 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {t.directory.cityDetail.backToCities}
-            </Link>
-          </div>
-
           <div className="flex items-center mb-4">
             <MapPin className="w-8 h-8 mr-3" />
-            <h1 className="text-3xl font-bold">
-              {format(t.directory.cityDetail.title, { city: data.cityName })}
-            </h1>
+            {editable("title", content.title || format(t.directory.cityDetail.title, { city: data.cityName }), "text-3xl font-bold", "h1")}
           </div>
+          {editable("subtitle", content.subtitle, "mt-5 max-w-2xl text-base leading-7 text-blue-100 sm:text-lg", "p", true)}
+          {content.cta_label && (editMode ? (
+            <div className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-blue-800">
+              {editable("cta_label", content.cta_label, "", "span")}
+            </div>
+          ) : (
+            <a href={content.cta_href || `/${lang}/list-your-business`} className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-50">
+              {content.cta_label}
+            </a>
+          ))}
           
           <div className="flex items-center text-blue-100">
             <Building2 className="w-5 h-5 mr-2" />
@@ -170,25 +188,39 @@ export default function CityPageClient({ lang, slug }: Props) {
         </div>
       </section>
 
-      {/* Popular Business Types */}
-      {data.categories.length > 0 && !data.loading && (
-        <PopularBusinessTypes
-          title={format(t.directory.cityDetail.popularTypesTitle, { city: data.cityName })}
-          categories={data.categories}
-          baseUrl={`/${lang}/search?city=${slug}`}
-          limit={12}
-        />
-      )}
-
-      {/* Inline Ad */}
-      <div className="py-8">
-        <div className="mx-auto max-w-7xl px-4">
-          <AdPlaceholder variant="inline" />
+      <div className="border-b border-slate-200 bg-slate-50 py-3">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Breadcrumbs current={data.cityName} />
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <DirectorySidebarLayout sidebar={<Sidebar content="ads" context={{ citySlug: slug }} />}>
+        {content.intro && (
+          <section className="pt-8">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              {editable("intro", content.intro, "text-base leading-7 text-slate-700", "p", true)}
+            </div>
+          </section>
+        )}
+        {/* Popular Business Types */}
+        {data.categories.length > 0 && !data.loading && (
+          <PopularBusinessTypes
+            title={format(t.directory.cityDetail.popularTypesTitle, { city: data.cityName })}
+            categories={data.categories}
+            baseUrl={`/${lang}/search?city=${slug}`}
+            limit={12}
+          />
+        )}
+
+        {/* Inline Ad */}
+        <div className="py-8">
+          <div className="w-full">
+            <AdPlaceholder variant="inline" />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="py-8">
         {data.error && (
           <div className="mb-6 rounded-lg bg-red-50 border border-red-200 p-4">
             <div className="flex">
@@ -226,7 +258,7 @@ export default function CityPageClient({ lang, slug }: Props) {
             </div>
 
             {/* Business Grid - Using CSS columns for mixed heights */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
               {sortedBusinesses.map((business) => (
                 <div
                   key={business.id}
@@ -251,9 +283,11 @@ export default function CityPageClient({ lang, slug }: Props) {
             )}
           </>
         )}
-      </div>
+        </div>
+      </DirectorySidebarLayout>
 
       <BlogPostsSlider lang={lang} mode="eu" />
+      {toolbar}
     </>
   );
 }
