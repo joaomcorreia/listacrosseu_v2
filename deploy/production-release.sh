@@ -25,7 +25,7 @@ python3 -m venv --clear /tmp/listacrosseu-release-venv
 /tmp/listacrosseu-release-venv/bin/pip install -r backend/requirements.txt
 /tmp/listacrosseu-release-venv/bin/python backend/manage.py check --deploy --settings=config.settings.production
 /tmp/listacrosseu-release-venv/bin/python backend/manage.py test listings --settings=config.settings.production
-(cd frontend && npm ci && npm run lint && npx tsc --noEmit && npm run build)
+(cd frontend && npm ci --include=dev && npm run lint && npx tsc --noEmit && npm run build)
 /tmp/listacrosseu-release-venv/bin/python backend/manage.py makemigrations --check --dry-run --settings=config.settings.production
 
 grep -Eq '^NEXT_PUBLIC_ENABLE_PUBLIC_CLAIM_CTA=1([[:space:]]*#.*)?$' /etc/listacross.eu/frontend.env
