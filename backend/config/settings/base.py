@@ -57,9 +57,16 @@ def build_database_config(database_url: str, conn_max_age: int, ssl_require: boo
     scheme = parsed.scheme.lower()
 
     if scheme in {"sqlite", "sqlite3"}:
-        sqlite_path = unquote(parsed.path.lstrip("/"))
+        sqlite_path = unquote(parsed.path)
         if parsed.netloc:
-            sqlite_path = f"{parsed.netloc}{parsed.path}"
+            sqlite_path = f"//{parsed.netloc}{parsed.path}"
+        elif sqlite_path.startswith("//"):
+            # sqlite:////var/... is the standard URL form for an absolute
+            # Unix path. Normalize the doubled URL slash to one filesystem
+            # root slash instead of turning the path into a relative path.
+            sqlite_path = "/" + sqlite_path.lstrip("/")
+        elif os.name == "nt" and len(sqlite_path) >= 3 and sqlite_path[1:3] == ":/":
+            sqlite_path = sqlite_path[1:]
         return {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": sqlite_path,
