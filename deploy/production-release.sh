@@ -9,6 +9,9 @@ FRONTEND_SERVICE=listacrosseu-frontend.service
 RELEASE_REF="${1:?Usage: production-release.sh <git-ref-or-package> [--import]}"
 DO_IMPORT=false
 [[ "${2:-}" == "--import" ]] && DO_IMPORT=true
+# Keep production migrations/checks/import guards pointed at the shared live
+# database; never fall back to a release-local SQLite file.
+export DATABASE_URL="sqlite:////var/www/listacross.eu/shared/db/db.sqlite3"
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$BACKUPS"
