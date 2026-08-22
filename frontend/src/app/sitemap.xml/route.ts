@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
 
+const CANONICAL_SITEMAP_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(PUBLIC_SITE_URL)
+  ? "https://listacross.eu"
+  : PUBLIC_SITE_URL;
+
 export function normalizeSitemapHosts(xml: string): string {
   return xml.replace(/(<loc>)(https?:\/\/[^<]+)(<\/loc>)/g, (_match, open, value, close) => {
     try {
       const parsed = new URL(value);
-      return `${open}${PUBLIC_SITE_URL}${parsed.pathname}${parsed.search}${close}`;
+      return `${open}${CANONICAL_SITEMAP_ORIGIN}${parsed.pathname}${parsed.search}${close}`;
     } catch {
       return `${open}${value}${close}`;
     }

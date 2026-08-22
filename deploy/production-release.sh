@@ -25,11 +25,10 @@ python3 -m venv --clear /tmp/listacrosseu-release-venv
 (cd frontend && npm ci && npm run lint && npx tsc --noEmit && npm run build)
 /tmp/listacrosseu-release-venv/bin/python backend/manage.py makemigrations --check --dry-run --settings=config.settings.production
 
+grep -Eq '^NEXT_PUBLIC_ENABLE_PUBLIC_CLAIM_CTA=1([[:space:]]*#.*)?$' /etc/listacross.eu/frontend.env
+
 DATA_FILES=(
   backend/imports/review/osm-city-seed/combined/final-approved.json
-  backend/imports/review/osm-city-seed-20260819-brussels/brussels/candidates.json
-  backend/imports/review/osm-city-seed-20260819-ghent/ghent/candidates.json
-  backend/imports/review/osm-city-seed-20260819-ixelles/ixelles/candidates.json
 )
 /tmp/listacrosseu-release-venv/bin/python backend/manage.py import_reviewed_osm --country-code BE $(printf -- '--file %q ' "${DATA_FILES[@]}") --dry-run --settings=config.settings.production
 if $DO_IMPORT; then
@@ -39,6 +38,6 @@ fi
 
 systemctl restart "$BACKEND_SERVICE"
 systemctl restart "$FRONTEND_SERVICE"
-curl --fail --silent --show-error http://127.0.0.1:8004/api/listings/countries/ >/dev/null
+curl --fail --silent --show-error http://127.0.0.1:8004/healthz/ >/dev/null
 curl --fail --silent --show-error http://127.0.0.1:3004/ >/dev/null
 echo "Release $RELEASE_REF is healthy; database backup: $BACKUPS/db.sqlite3.$stamp"

@@ -63,6 +63,12 @@ const slugFixes: Record<string, string> = {
   vilanovadegaia: "vila-nova-de-gaia",
 };
 
+function publicRedirectOrigin(request: NextRequest): string {
+  const configured = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/g, "");
+  if (configured && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configured)) return configured;
+  return request.nextUrl.origin;
+}
+
 function isMalformedRouteSegment(segment: string): boolean {
   return segment === "$" || /^\{[^{}]+\}$/.test(segment);
 }
@@ -108,15 +114,15 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathSegments.length === 3 && secondSegment === "cities" && thirdSegment && slugFixes[thirdSegment]) {
-    return applyNoIndexHeader(
-      NextResponse.redirect(new URL(`/${lang}/cities/${slugFixes[thirdSegment]}`, request.url), 301),
+      return applyNoIndexHeader(
+      NextResponse.redirect(new URL(`/${lang}/cities/${slugFixes[thirdSegment]}`, publicRedirectOrigin(request)), 301),
     );
   }
 
   if (pathSegments.length === 2 && !knownRoutes.has(secondSegment)) {
     const correctedSlug = slugFixes[secondSegment] || secondSegment;
     return applyNoIndexHeader(
-      NextResponse.redirect(new URL(`/${lang}/cities/${correctedSlug}`, request.url), 301),
+      NextResponse.redirect(new URL(`/${lang}/cities/${correctedSlug}`, publicRedirectOrigin(request)), 301),
     );
   }
 
