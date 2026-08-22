@@ -1,5 +1,6 @@
 import { debugWarn } from "@/lib/debug";
 import { PUBLIC_API_BASE_URL } from "@/lib/env.public";
+import { isPublicCategory } from "@/lib/public-categories";
 
 export const API_BASE_URL = PUBLIC_API_BASE_URL;
 
@@ -49,6 +50,7 @@ export type BusinessDetail = {
   name: string;
   slug: string;
   tier: "free" | "claimed" | "premium";
+  claimed_listing_published?: boolean;
   country: BusinessLocation;
   city: BusinessLocation | null;
   town: BusinessLocation | null;
@@ -67,6 +69,16 @@ export type BusinessDetail = {
   description: string;
   keywords: string[];
   logo_url: string;
+  accent_color?: string;
+  business_type?: string;
+  region?: string;
+  contact_email?: string;
+  whatsapp_number?: string;
+  languages?: string[];
+  background_image?: string;
+  overlay_color?: string;
+  overlay_opacity?: number;
+  visibility?: Record<string, boolean>;
   image_url: string;
   premium_content: string;
   premium_images: string[];
@@ -126,7 +138,8 @@ export async function searchBusinesses(params: {
 export async function fetchCountries() {
   const res = await fetch(`${API_BASE_URL}/api/listings/countries/`);
   if (!res.ok) throw new Error("Failed to fetch countries");
-  return (await res.json()) as { id: number; name: string; slug: string }[];
+  const categories = (await res.json()) as { id: number; name: string; slug: string }[];
+  return categories.filter(isPublicCategory);
 }
 
 export async function fetchCategories() {
@@ -424,6 +437,5 @@ export async function fetchPage(key: string, lang?: string): Promise<PageData> {
   
   return (await res.json()) as PageData;
 }
-
 
 

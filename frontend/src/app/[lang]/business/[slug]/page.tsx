@@ -9,6 +9,8 @@ import { generateSEO } from "@/lib/seo";
 import { INTERNAL_BACKEND_URL } from '@/lib/env.server';
 import type { BusinessDetail } from '@/lib/api';
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
+import { fetchBusinessDiscovery } from '@/lib/business-discovery';
 
 type Business = BusinessDetail;
 
@@ -17,7 +19,7 @@ async function fetchBusiness(slug: string): Promise<Business | null> {
     const baseUrl = INTERNAL_BACKEND_URL;
     const response = await fetch(`${baseUrl}/api/listings/businesses/${slug}/`, {
       // Enable ISR (Incremental Static Regeneration)
-      next: { revalidate: 3600 }, // Revalidate every hour
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -47,6 +49,8 @@ export default async function BusinessDetailPage({
     notFound();
   }
 
+  const discovery = await fetchBusinessDiscovery(business, lang);
+
   const baseUrl = PUBLIC_SITE_URL;
   const breadcrumbs = [
     { name: "Home", url: `${baseUrl}/${lang}` },
@@ -71,7 +75,7 @@ export default async function BusinessDetailPage({
       <StructuredData data={generateBreadcrumbSchema(breadcrumbs)} />
       <TopHeader />
       <Layout withTopHeader>
-        <BusinessDetailPageClient business={business} lang={lang} />
+        <BusinessDetailPageClient business={business} lang={lang} discovery={discovery} />
       </Layout>
     </>
   );
@@ -102,8 +106,7 @@ export async function generateMetadata({
     business.description ||
     `${categoryName} in ${cityName || countryName}. Professional services and reliable business information on ListAcross EU.`;
 
-  const canonicalPath =
-    business.canonical_path || `/${lang}/business/${business.slug}`;
+  const canonicalPath = getBusinessCanonicalPath(business, lang);
 
   return generateSEO(
     {

@@ -3,6 +3,8 @@ import SectionRenderer from "@/components/sections/SectionRenderer";
 import AdPlaceholder from "@/components/ads/AdPlaceholder";
 import { fetchPage, type PageData } from "@/lib/api";
 import FlagCarousel from "@/components/FlagCarousel";
+import { isSupportedLanguage } from "@/lib/lang";
+import { notFound } from "next/navigation";
 
 interface HomeLangPageProps {
   params: Promise<{
@@ -13,6 +15,7 @@ interface HomeLangPageProps {
 export default async function HomeLangPage({ params }: HomeLangPageProps) {
   let pageData: PageData;
   const { lang } = await params;
+  if (!isSupportedLanguage(lang)) notFound();
   
   try {
     pageData = await fetchPage('home', lang);

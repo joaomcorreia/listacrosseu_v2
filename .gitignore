@@ -60,3 +60,9 @@ venv/
 /backend/3.8/
 /backend/4.0.0/
 /backend/5.0/
+
+# Local release packages, logs, and generated snapshots
+/.release/
+/.tmp-*.log
+/.tmp-*.tar.gz
+backend/imports/cache/

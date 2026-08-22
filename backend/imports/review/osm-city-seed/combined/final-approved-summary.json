@@ -1,0 +1,45 @@
+{
+  "source_artifact": "imports\\review\\osm-city-seed\\combined\\candidates.json",
+  "approved_total": 3738,
+  "approved_by_city": {
+    "anderlecht": 321,
+    "antwerp": 3417
+  },
+  "website_status": {
+    "NO_WEBSITE": 1898,
+    "SOCIAL_ONLY": 82,
+    "WEBSITE_PRESENT": 1758
+  },
+  "category_distribution": {
+    "accounting-firms": 3,
+    "bars-pubs": 442,
+    "beauty-salon": 253,
+    "bookstore": 37,
+    "cafe": 306,
+    "car-dealers": 34,
+    "clothing-store": 436,
+    "creative-services": 21,
+    "dentist": 30,
+    "electronics-stores": 39,
+    "fast-food": 374,
+    "gym": 49,
+    "hostels": 6,
+    "hotel": 87,
+    "jewelry-stores": 185,
+    "legal-services": 14,
+    "pastry-shops": 172,
+    "pharmacy": 151,
+    "physiotherapy": 9,
+    "real-estate-agencies": 23,
+    "restaurant": 875,
+    "shoe-stores": 65,
+    "supermarkets": 108,
+    "veterinary": 19
+  },
+  "removed_during_final_gate": 6,
+  "removal_reasons": {
+    "invalid_phone": 5,
+    "invalid_website": 1
+  },
+  "review_candidates_excluded": 4790
+}

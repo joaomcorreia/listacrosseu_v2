@@ -6,6 +6,7 @@ import PremiumPagePreview from '../premium/PremiumPagePreview';
 import BusinessCard from '../BusinessCard';
 import { useTranslations } from '@/i18n/translations';
 import { debugLog } from '@/lib/debug';
+import Link from 'next/link';
 
 export interface Business {
   id: string;
@@ -32,6 +33,7 @@ interface ListingFlowModalProps {
   startStep?: "claim" | "premium";
   onSubmit?: (data: ClaimSubmitData) => Promise<ClaimSubmitResult | void>;
   showPreview?: boolean;
+  redirectBusinessId?: number;
 }
 
 interface FormData {
@@ -70,6 +72,10 @@ export interface ClaimSubmitResult {
   claim_id?: number;
   email_status?: 'sent' | 'console';
   verification_url?: string;
+  claim_status?: 'pending' | 'verified';
+  business_id?: number;
+  claim_token?: string;
+  email?: string;
 }
 
 export default function ListingFlowModal({ 
@@ -80,6 +86,7 @@ export default function ListingFlowModal({
   startStep = "claim",
   onSubmit,
   showPreview = true,
+  redirectBusinessId,
 }: ListingFlowModalProps) {
   const t = useTranslations(lang);
   const defaultServices = Array.from({ length: 6 }, (_, index) => ({
@@ -389,14 +396,17 @@ export default function ListingFlowModal({
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t.forms.claimForm.sections.claimDetails}</h3>
                 {submitSuccess ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                    <div className="font-semibold text-emerald-900">{submitResult?.email_status === 'console' ? 'Verification link created' : t.forms.claimForm.messages.checkEmailTitle}</div>
+                    <div className="font-semibold text-emerald-900">{submitResult?.claim_status === 'verified' ? 'Business claimed' : 'Verification required'}</div>
                     <p className="mt-2">
                       {submitResult?.message || t.forms.claimForm.messages.checkEmailBody}
                     </p>
-                    {submitResult?.verification_url && (
-                      <a href={submitResult.verification_url} className="mt-3 inline-flex font-semibold text-emerald-800 underline">
-                        Open verification link
-                      </a>
+                    {submitResult?.claim_status === 'verified' ? (
+                      <Link href={`/${lang}/dashboard?business=${submitResult.business_id || redirectBusinessId || ''}`} className="mt-3 inline-flex rounded-md bg-blue-700 px-4 py-2 font-semibold text-white">Open your business dashboard</Link>
+                    ) : (
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <Link href={`/${lang}/signup?next=${encodeURIComponent(`/${lang}/dashboard?business=${submitResult?.business_id || redirectBusinessId || ''}`)}`} className="inline-flex rounded-md bg-blue-700 px-4 py-2 font-semibold text-white">Create account and verify</Link>
+                        <Link href={`/${lang}/login?next=${encodeURIComponent(`/${lang}/dashboard?business=${submitResult?.business_id || redirectBusinessId || ''}`)}`} className="inline-flex rounded-md border border-blue-700 px-4 py-2 font-semibold text-blue-800">Sign in to continue</Link>
+                      </div>
                     )}
                     <button
                       type="button"

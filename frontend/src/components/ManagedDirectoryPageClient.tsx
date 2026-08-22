@@ -7,8 +7,8 @@ import DirectorySidebarLayout from '@/components/DirectorySidebarLayout';
 import Sidebar from '@/components/Sidebar';
 import { fetchBusinessesByLocation, type BusinessSearchResult } from '@/lib/api/listings';
 import { useDirectoryPageEditor, type DirectoryPageContent } from '@/components/DirectoryPageEditor';
-import { STRIPE_GENERATED_WEBSITE_URL } from '@/lib/env.public';
 import { GENERATED_WEBSITE_PRODUCT } from '@/lib/product-config';
+import { actionHrefForLabel, publicActionHref } from '@/lib/public-actions';
 import StructuredData from '@/components/StructuredData';
 import { generateBreadcrumbSchema } from '@/lib/schema';
 import { PUBLIC_SITE_URL } from '@/lib/env.public';
@@ -26,13 +26,14 @@ type Props = {
 export default function ManagedDirectoryPageClient({ lang, scope, slug, defaults, listing }: Props) {
   const editor = useDirectoryPageEditor({ scope, slug, defaults });
   const { content, editable, editMode, toolbar } = editor;
+  const listingContext = { country: listing?.country, city: listing?.city };
   const ctaHref = slug === 'generated-business-website'
-    ? (STRIPE_GENERATED_WEBSITE_URL || `/${lang}/pricing`)
-    : (content.cta_href || `/${lang}/list-your-business`);
+    ? publicActionHref(lang, 'TRY_GENERATED_WEBSITE', listingContext)
+    : actionHrefForLabel(lang, content.cta_label, content.cta_href, listingContext);
   const [businesses, setBusinesses] = useState<BusinessSearchResult | null>(null);
   const relatedLinks = content.related_links?.length ? content.related_links : [
-    { label: 'List Your Business for Free', href: `/${lang}/list-your-business-free` },
-    { label: 'Generated Business Website', href: `/${lang}/generated-business-website` },
+    { label: 'List Your Business for Free', href: publicActionHref(lang, 'LIST_BUSINESS', listingContext) },
+    { label: 'Generated Business Website', href: publicActionHref(lang, 'TRY_GENERATED_WEBSITE', listingContext) },
     { label: 'Pricing', href: `/${lang}/pricing` },
     { label: 'Browse businesses', href: `/${lang}/search` },
     ...(listing?.city ? [{ label: 'Belgium free business listings', href: `/${lang}/free-business-listing-belgium` }] : []),
@@ -98,7 +99,7 @@ export default function ManagedDirectoryPageClient({ lang, scope, slug, defaults
             ].map(([number, title, text]) => <article key={number} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="text-sm font-black text-blue-700">{number}</span><h3 className="mt-2 font-bold text-slate-900">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></article>)}
           </div>
           <p className="mt-5 text-sm text-slate-600">Custom domain options are coming next.</p>
-          <Link href={`/${lang}/list-your-business-free`} className="mt-5 inline-flex rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">List your business for free</Link>
+          <Link href={publicActionHref(lang, 'LIST_BUSINESS', listingContext)} className="mt-5 inline-flex rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">List your business for free</Link>
         </section>
 
         {listing && businesses && businesses.results.length > 0 && <section className="pb-12">

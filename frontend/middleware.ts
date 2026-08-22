@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { generatedWebsiteRewriteUrl, resolveGeneratedWebsiteHost } from "./src/lib/generated-host";
 
 const supportedLangs = new Set(["en", "nl", "pt", "fr", "de", "es"]);
 const knownRoutes = new Set([
@@ -10,8 +11,12 @@ const knownRoutes = new Set([
   "businesses",
   "business-visibility",
   "categories",
+  "check-email",
   "cities",
+  "claim",
   "countries",
+  "dashboard",
+  "generated",
   "get-found-online",
   "list-your-business-free",
   "generated-business-website",
@@ -34,8 +39,10 @@ const knownRoutes = new Set([
   "put-your-business-online",
   "list-your-business",
   "locations",
+  "login",
   "promote-your-business-free",
   "search",
+  "signup",
   "towns",
   "api",
   "_next",
@@ -48,11 +55,17 @@ const knownRoutes = new Set([
   "privacy",
   "terms",
   "verify",
+  "verify-account",
+  "premium-preview",
 ]);
 
 const slugFixes: Record<string, string> = {
   vilanovadegaia: "vila-nova-de-gaia",
 };
+
+function isMalformedRouteSegment(segment: string): boolean {
+  return segment === "$" || /^\{[^{}]+\}$/.test(segment);
+}
 
 function applyNoIndexHeader(response: NextResponse): NextResponse {
   if (process.env.NEXT_PUBLIC_STAGING_NOINDEX === "1") {
@@ -63,7 +76,19 @@ function applyNoIndexHeader(response: NextResponse): NextResponse {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const generatedWebsiteSlug = resolveGeneratedWebsiteHost(request.headers.get("host") || request.nextUrl.hostname);
+  if (generatedWebsiteSlug && !pathname.startsWith("/_next/") && !pathname.startsWith("/api/") && !pathname.startsWith("/_generated-site/")) {
+    const rewritten = generatedWebsiteRewriteUrl(request.url, generatedWebsiteSlug);
+    const rewriteHeaders = new Headers(request.headers);
+    const originalHost = request.headers.get("host");
+    if (originalHost) rewriteHeaders.set("x-forwarded-host", originalHost);
+    return applyNoIndexHeader(NextResponse.rewrite(rewritten, { request: { headers: rewriteHeaders } }));
+  }
   const pathSegments = pathname.split("/").filter(Boolean);
+
+  if (pathSegments.some(isMalformedRouteSegment)) {
+    return applyNoIndexHeader(new NextResponse("Not Found", { status: 404 }));
+  }
 
   if (pathname.includes("/admin/visual/") && process.env.ENABLE_VISUAL_HOMEPAGE_EDITOR !== "1") {
     return applyNoIndexHeader(new NextResponse("Not Found", { status: 404 }));

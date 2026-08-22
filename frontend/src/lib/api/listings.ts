@@ -1,5 +1,6 @@
 import { debugLog } from "@/lib/debug";
 import { PUBLIC_API_BASE_URL } from "@/lib/env.public";
+import { isPublicCategory } from "@/lib/public-categories";
 
 /**
  * API client for listings/business directory endpoints
@@ -41,6 +42,7 @@ export interface Category {
   id: number;
   name: string;
   slug: string;
+  is_public?: boolean;
   business_count?: number;
 }
 
@@ -49,6 +51,7 @@ export interface Business {
   name: string;
   slug: string;
   tier: 'free' | 'claimed' | 'premium';
+  is_published?: boolean;
   visibility_scope?: 'country' | 'eu';
   visibility_country?: string;
   country: Country;
@@ -67,9 +70,10 @@ export interface Business {
   website: string;
   phone: string;
   description: string;
-  keywords?: string[];  // Optional keywords array
+  keywords?: unknown;  // Public API normalizes this, but legacy responses may not.
   logo_url?: string;    // Optional logo URL
   image_url?: string;   // Optional image URL
+  accent_color?: string;
   is_micro: boolean;
   employee_count: number | null;
   source: string;
@@ -81,10 +85,15 @@ export interface BusinessSearchResult {
   limit: number;
   offset: number;
   results: Business[];
+  fallback?: boolean;
+  fallback_message?: string;
+  detected_location?: string;
+  normalized_query?: string;
 }
 
 export interface SearchFilters {
   q?: string;
+  location?: string;
   country?: string;
   city?: string;
   town?: string;
@@ -100,6 +109,7 @@ export async function fetchBusinesses(filters: SearchFilters = {}): Promise<Busi
   const params = new URLSearchParams();
   
   if (filters.q) params.append('q', filters.q);
+  if (filters.location) params.append('location', filters.location);
   if (filters.country) params.append('country', filters.country);
   if (filters.city) params.append('city', filters.city);
   if (filters.town) params.append('town', filters.town);
@@ -279,7 +289,8 @@ export async function fetchCategories(): Promise<Category[]> {
     throw new Error(`API Error: ${response.status} - ${response.statusText}`);
   }
 
-  return response.json();
+  const categories = await response.json() as Category[];
+  return categories.filter(isPublicCategory);
 }
 
 export async function fetchCategoriesByLocation(
@@ -308,7 +319,8 @@ export async function fetchCategoriesByLocation(
     throw new Error(`API Error: ${response.status} - ${response.statusText}`);
   }
 
-  return response.json();
+  const categories = await response.json() as Category[];
+  return categories.filter(isPublicCategory);
 }
 
 // Helper function to get businesses for a specific location

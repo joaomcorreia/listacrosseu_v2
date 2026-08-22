@@ -3,7 +3,7 @@ import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
 
 const STATIC_PATHS = [
-  "/en",
+  "/en/",
   "/en/list-your-business-free",
   "/en/generated-business-website",
   "/en/pricing",

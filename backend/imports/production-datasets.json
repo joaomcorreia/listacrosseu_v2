@@ -1,0 +1,14 @@
+{
+  "source": "OpenStreetMap",
+  "attribution": "OpenStreetMap contributors (ODbL 1.0)",
+  "country_code": "BE",
+  "cities": {
+    "antwerp": "imports/review/osm-city-seed/combined/final-approved.json",
+    "anderlecht": "imports/review/osm-city-seed/combined/final-approved.json",
+    "brussels": "imports/review/osm-city-seed-20260819-brussels/brussels/candidates.json",
+    "ghent": "imports/review/osm-city-seed-20260819-ghent/ghent/candidates.json",
+    "ixelles": "imports/review/osm-city-seed-20260819-ixelles/ixelles/candidates.json"
+  },
+  "city_assignment": "Brussels rows carrying reassigned_city_slug=ixelles are assigned to Ixelles by the guarded importer.",
+  "notes": "Antwerp and Anderlecht use the final approved artifact. Brussels, Ghent, and Ixelles retain the complete reviewed candidate packs; the importer only accepts clean, categorized rows and never replaces SQLite."
+}

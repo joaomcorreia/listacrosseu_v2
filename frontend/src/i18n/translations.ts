@@ -2,6 +2,12 @@ export const translations = {
   en: {
     nav: {
       home: "Home",
+      search: "Search",
+      popularCategories: "Popular categories in {country}",
+      businessesIn: "Businesses in {country}",
+      exploreOtherCountries: "Explore other EU countries",
+      viewAllCategories: "View all categories",
+      discoveryAllEurope: "Explore businesses across Europe",
       browse: "Browse",
       pricing: "Pricing",
       blog: "Blog",
@@ -1342,6 +1348,12 @@ export const translations = {
   fr: {
     nav: {
       home: "Accueil",
+      search: "Rechercher",
+      popularCategories: "Categories populaires en {country}",
+      businessesIn: "Entreprises en {country}",
+      exploreOtherCountries: "Explorer les autres pays europeens",
+      viewAllCategories: "Voir toutes les categories",
+      discoveryAllEurope: "Explorer les entreprises en Europe",
       browse: "Explorer",
       pricing: "Tarifs",
       blog: "Blog",
@@ -2124,6 +2136,12 @@ export const translations = {
   de: {
     nav: {
       home: "Startseite",
+      search: "Suchen",
+      popularCategories: "Beliebte Kategorien in {country}",
+      businessesIn: "Unternehmen in {country}",
+      exploreOtherCountries: "Andere europaeische Laender entdecken",
+      viewAllCategories: "Alle Kategorien anzeigen",
+      discoveryAllEurope: "Unternehmen in Europa entdecken",
       browse: "Entdecken",
       pricing: "Preise",
       blog: "Blog",
@@ -2906,6 +2924,12 @@ export const translations = {
   es: {
     nav: {
       home: "Inicio",
+      search: "Buscar",
+      popularCategories: "Categorias populares en {country}",
+      businessesIn: "Empresas en {country}",
+      exploreOtherCountries: "Explorar otros paises europeos",
+      viewAllCategories: "Ver todas las categorias",
+      discoveryAllEurope: "Explorar empresas en Europa",
       browse: "Explorar",
       pricing: "Precios",
       blog: "Blog",
@@ -3688,6 +3712,12 @@ export const translations = {
   pt: {
     nav: {
       home: "Inicio",
+      search: "Pesquisar",
+      popularCategories: "Categorias populares em {country}",
+      businessesIn: "Empresas em {country}",
+      exploreOtherCountries: "Explorar outros paises europeus",
+      viewAllCategories: "Ver todas as categorias",
+      discoveryAllEurope: "Explorar empresas na Europa",
       browse: "Explorar",
       pricing: "Precos",
       blog: "Blog",
@@ -4470,6 +4500,12 @@ export const translations = {
   nl: {
     nav: {
       home: "Home",
+      search: "Zoeken",
+      popularCategories: "Populaire categorieen in {country}",
+      businessesIn: "Bedrijven in {country}",
+      exploreOtherCountries: "Andere Europese landen ontdekken",
+      viewAllCategories: "Alle categorieen bekijken",
+      discoveryAllEurope: "Bedrijven in Europa ontdekken",
       browse: "Verkennen",
       pricing: "Prijzen",
       blog: "Blog",

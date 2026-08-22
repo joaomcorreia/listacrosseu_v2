@@ -16,8 +16,8 @@ const GLOBAL: SidebarContent = {
   heading: 'Explore ListAcrossEU',
   body: 'Browse businesses, list your own for free, and explore the generated website option after claiming a listing.',
   links: [
-    ['List Your Business Free', '/list-your-business-free'],
-    [GENERATED_WEBSITE_PRODUCT.cta, '/generated-business-website'],
+    ['List Your Business Free', '/list-your-business'],
+    [GENERATED_WEBSITE_PRODUCT.cta, '/list-your-business?next=generated-website'],
     ['Pricing', '/pricing'],
     ['Browse businesses', '/search'],
   ],

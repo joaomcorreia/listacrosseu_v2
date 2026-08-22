@@ -13,14 +13,6 @@ export function generateWebsiteSchema(lang: string) {
         publisher: {
           "@id": "https://listacross.eu/#organization",
         },
-        potentialAction: {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: `https://listacross.eu/${lang}/search?q={search_term}`,
-          },
-          "query-input": "required name=search_term",
-        },
       },
       {
         "@type": "Organization",

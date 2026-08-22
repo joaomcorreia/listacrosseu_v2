@@ -1,0 +1,65 @@
+{
+  "city": "brussels",
+  "raw_candidates": 8980,
+  "after_chain_non_business_filter": 8767,
+  "existing_duplicates": 661,
+  "incoming_duplicates": 0,
+  "ambiguous_duplicates": 0,
+  "clean_import_candidates": 7939,
+  "category_review": 167,
+  "rejection_reasons": {
+    "obvious_chain": 212,
+    "obvious_non_business_amenity": 1
+  },
+  "category_distribution": {
+    "REVIEW_REQUIRED": 167,
+    "accounting-firms": 11,
+    "bars-pubs": 792,
+    "beauty-salon": 864,
+    "bookstore": 119,
+    "cafe": 629,
+    "car-dealers": 123,
+    "clothing-store": 664,
+    "creative-services": 42,
+    "dentist": 122,
+    "electronics-stores": 47,
+    "fast-food": 901,
+    "gym": 75,
+    "hostels": 15,
+    "hotel": 201,
+    "jewelry-stores": 139,
+    "legal-services": 41,
+    "pastry-shops": 326,
+    "pharmacy": 353,
+    "physiotherapy": 31,
+    "real-estate-agencies": 121,
+    "restaurant": 2073,
+    "retail": 3,
+    "shoe-stores": 100,
+    "supermarkets": 90,
+    "veterinary": 57
+  },
+  "website_status": {
+    "NO_WEBSITE": 5148,
+    "SOCIAL_ONLY": 372,
+    "WEBSITE_PRESENT": 2586
+  },
+  "unknown_category_concepts": {
+    "amenity=internet_cafe": 5,
+    "amenity=public_bath": 6,
+    "amenity=public_bookcase": 18,
+    "healthcare=alternative;physiotherapist": 1,
+    "shop=car_parts": 21,
+    "shop=car_pound": 1,
+    "shop=car_repair": 90,
+    "shop=carpet": 17,
+    "shop=carpet;craft=atelier": 1,
+    "shop=hairdresser_supply": 7
+  },
+  "timing_seconds": {
+    "candidate_parsing": 11.842,
+    "normalization": 0.286,
+    "deduplication": 196.446,
+    "artifact_generation": 1.521
+  }
+}

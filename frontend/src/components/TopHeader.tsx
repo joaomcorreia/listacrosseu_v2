@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { normalizeLang } from "@/lib/lang";
 import { useTranslations } from "@/i18n/translations";
+import { publicActionHref } from "@/lib/public-actions";
 
 export default function TopHeader() {
   const params = useParams();
@@ -35,7 +36,7 @@ export default function TopHeader() {
           {t.nav.tagline}
         </span>
         <Link
-          href={`/${currentLang}/list-your-business`}
+          href={publicActionHref(currentLang, 'LIST_BUSINESS')}
           className="font-medium text-white/90 hover:text-white"
         >
           {t.nav.listYourBusiness}

@@ -6,6 +6,7 @@ import ClaimBusinessModal from '@/components/ClaimBusinessModal';
 import { useModal } from '@/hooks/useModal';
 import { fetchCountries, fetchBusinessesByLocation, Business, Country } from '@/lib/api/listings';
 import { useTranslations } from '@/i18n/translations';
+import { publicActionHref } from '@/lib/public-actions';
 import AdPlaceholder from '@/components/ads/AdPlaceholder';
 import { debugLog } from '@/lib/debug';
 
@@ -261,7 +262,7 @@ export default function ListingsMixedSection({ section, lang = 'en' }: ListingsM
             {premiumOnlySection && (
               <div className="mt-6">
                 <a
-                  href={`/${lang}/pricing`}
+                  href={publicActionHref(lang, 'TRY_GENERATED_WEBSITE')}
                   className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
                   {t.home.listingsMixed.premiumCta}

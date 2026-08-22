@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import { normalizeLang } from "@/lib/lang";
 import { useTranslations } from "@/i18n/translations";
 import {
   fetchBusinesses,
   fetchCountries,
+  fetchCountriesWithStats,
   fetchCategories,
+  fetchCategoriesByLocation,
+  fetchBusinessesByLocation,
   fetchCities,
   type Business,
   type Country,
   type City,
   type Category,
+  type CountryWithStats,
   type BusinessSearchResult,
 } from "@/lib/api/listings";
 import {
@@ -23,8 +28,19 @@ import SnowBackground from "@/components/SnowBackground";
 import BusinessCard from "@/components/BusinessCard";
 import DirectoryViewToggle, { type DirectoryView } from "@/components/DirectoryViewToggle";
 import DirectoryBusinessList from "@/components/DirectoryBusinessList";
+import { detectVisitorCountry } from "@/lib/visitor-country";
+import { sanitizeSearchValue } from "@/lib/searchValues";
 
 type Option = { label: string; value: string };
+
+const locationLabels: Record<string, string> = {
+  en: "City or country",
+  fr: "Ville ou pays",
+  de: "Stadt oder Land",
+  es: "Ciudad o país",
+  pt: "Cidade ou país",
+  nl: "Stad of land",
+};
 
 const defaultUiText: UiTextResponse = {
   group: 0,
@@ -42,6 +58,7 @@ export default function SearchPageClient() {
   const t = useTranslations(lang);
 
   const [q, setQ] = useState("");
+  const [location, setLocation] = useState("");
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("");
   const [category, setCategory] = useState("");
@@ -60,6 +77,14 @@ export default function SearchPageClient() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackMessage, setFallbackMessage] = useState<string | null>(null);
+  const [detectedCountry, setDetectedCountry] = useState<CountryWithStats | null>(null);
+  const [discoveryCountries, setDiscoveryCountries] = useState<CountryWithStats[]>([]);
+  const [discoveryCategories, setDiscoveryCategories] = useState<Category[]>([]);
+  const [discoveryBusinesses, setDiscoveryBusinesses] = useState<Business[]>([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(true);
+
+  const hasActiveSearch = Boolean(q || location || country || city || category || isMicro);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("listacrosseu-directory-view");
@@ -112,16 +137,83 @@ export default function SearchPageClient() {
     };
   }, [lang]);
 
-  async function runSearch(newOffset = 0) {
+  useEffect(() => {
+    if (hasActiveSearch) return;
+    let cancelled = false;
+    setDiscoveryLoading(true);
+
+    async function loadDiscovery() {
+      try {
+        const [visitorCode, countryData, globalCategories, globalBusinesses] = await Promise.all([
+          detectVisitorCountry(),
+          fetchCountriesWithStats(),
+          fetchCategories(),
+          fetchBusinesses({ limit: 6 }),
+        ]);
+        if (cancelled) return;
+
+        const preferred = visitorCode
+          ? countryData.find((item) => item.code?.toUpperCase() === visitorCode || item.slug.toUpperCase() === visitorCode)
+          : undefined;
+        const otherCountries = countryData
+          .filter((item) => item.slug !== preferred?.slug)
+          .slice(0, 12);
+
+        if (preferred) {
+          const [countryCategories, countryBusinesses] = await Promise.all([
+            fetchCategoriesByLocation(preferred.slug),
+            fetchBusinessesByLocation(preferred.slug, undefined, { limit: 6 }),
+          ]);
+          if (cancelled) return;
+          setDetectedCountry(preferred);
+          setDiscoveryCategories(countryCategories.slice(0, 10));
+          setDiscoveryBusinesses(countryBusinesses.results);
+        } else {
+          setDetectedCountry(null);
+          setDiscoveryCategories(globalCategories.slice(0, 10));
+          setDiscoveryBusinesses(globalBusinesses.results);
+        }
+        setDiscoveryCountries(otherCountries);
+      } catch (discoveryError) {
+        console.error(discoveryError);
+        if (!cancelled) {
+          setDetectedCountry(null);
+          setDiscoveryCategories([]);
+          setDiscoveryBusinesses([]);
+          setDiscoveryCountries([]);
+        }
+      } finally {
+        if (!cancelled) setDiscoveryLoading(false);
+      }
+    }
+
+    loadDiscovery();
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, hasActiveSearch]);
+
+  type SearchState = {
+    q: string;
+    location: string;
+    country: string;
+    city: string;
+    category: string;
+    isMicro: boolean;
+  };
+
+  async function runSearch(newOffset = 0, overrides: Partial<SearchState> = {}) {
+    const search = { q, location, country, city, category, isMicro, ...overrides };
     try {
       setLoading(true);
       setError(null);
       const response = await fetchBusinesses({
-        q: q || undefined,
-        country: country || undefined,
-        city: city || undefined,
-        category: category || undefined,
-        is_micro: isMicro,
+        q: search.q || undefined,
+        location: search.location || undefined,
+        country: search.country || undefined,
+        city: search.city || undefined,
+        category: search.category || undefined,
+        is_micro: search.isMicro,
         limit,
         offset: newOffset,
       });
@@ -129,6 +221,9 @@ export default function SearchPageClient() {
       setBusinesses(response.results);
       setTotal(response.total);
       setOffset(response.offset);
+      setFallbackMessage(response.fallback_message || null);
+      if (response.normalized_query !== undefined) setQ(response.normalized_query);
+      if (response.detected_location) setLocation(response.detected_location);
     } catch (err) {
       console.error(err);
       setError(t.forms.search.messages.failed);
@@ -137,9 +232,73 @@ export default function SearchPageClient() {
     }
   }
 
+  useEffect(() => {
+    const next = {
+      q: sanitizeSearchValue(searchParamsUrl.get("q")),
+      location: sanitizeSearchValue(searchParamsUrl.get("location")),
+      country: sanitizeSearchValue(searchParamsUrl.get("country")),
+      city: sanitizeSearchValue(searchParamsUrl.get("city")),
+      category: sanitizeSearchValue(searchParamsUrl.get("category")),
+      isMicro: searchParamsUrl.get("is_micro") === "true",
+    };
+    setQ(next.q);
+    setLocation(next.location);
+    setCountry(next.country);
+    setCity(next.city);
+    setCategory(next.category);
+    setIsMicro(next.isMicro);
+    if (Object.values(next).some(Boolean)) runSearch(0, next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, searchParamsUrl.toString()]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const next = new URLSearchParams();
+    const safeQuery = sanitizeSearchValue(q);
+    const safeLocation = sanitizeSearchValue(location);
+    if (safeQuery) next.set("q", safeQuery);
+    if (safeLocation) next.set("location", safeLocation);
+    if (country) next.set("country", country);
+    if (city) next.set("city", city);
+    if (category) next.set("category", category);
+    if (isMicro) next.set("is_micro", "true");
+    router.push(`${pathname}?${next.toString()}`);
     runSearch(0);
+  }
+
+  function countryLabel(countryItem: CountryWithStats) {
+    const knownNames: Record<string, string> = {
+      pt: t.nav.browseCountries.portugal,
+      es: t.nav.browseCountries.spain,
+      fr: t.nav.browseCountries.france,
+      de: t.nav.browseCountries.germany,
+      it: t.nav.browseCountries.italy,
+      nl: t.nav.browseCountries.netherlands,
+    };
+    return knownNames[countryItem.slug] || countryItem.name;
+  }
+
+  function categoryLabel(categoryItem: Category) {
+    const knownNames: Record<string, string> = {
+      restaurants: t.nav.browseCategories.restaurants,
+      health: t.nav.browseCategories.health,
+      "professional-services": t.nav.browseCategories.professional,
+      retail: t.nav.browseCategories.retail,
+      "home-services": t.nav.browseCategories.homeServices,
+      beauty: t.nav.browseCategories.beauty,
+    };
+    return knownNames[categoryItem.slug] || categoryItem.name;
+  }
+
+  function discoveryHeading(template: string, value: string) {
+    return template.replace("{country}", value);
+  }
+
+  function openCategory(categorySlug: string) {
+    const next = new URLSearchParams();
+    if (detectedCountry) next.set("country", detectedCountry.slug);
+    next.set("category", categorySlug);
+    router.push(`${pathname}?${next.toString()}`);
   }
 
   const canPrev = offset > 0;
@@ -165,18 +324,31 @@ export default function SearchPageClient() {
   
         <form
           onSubmit={handleSubmit}
-          className="mb-6 grid gap-4 rounded-lg bg-white p-4 shadow-sm md:grid-cols-4"
+          className="mb-6 grid gap-4 rounded-lg bg-white p-4 shadow-sm md:grid-cols-5"
         >
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              {t.forms.search.labels.search}
+              {lang === "en" ? "What are you looking for?" : t.forms.search.labels.search}
             </label>
             <input
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={t.forms.search.placeholders.search}
+              placeholder={lang === "en" ? "What are you looking for?" : t.forms.search.placeholders.search}
               className="w-full rounded-md border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              {locationLabels[lang] || locationLabels.en}
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={locationLabels[lang] || locationLabels.en}
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/40"
             />
           </div>
 
@@ -294,6 +466,73 @@ export default function SearchPageClient() {
           </div>
         )}
 
+        {!hasActiveSearch && !error && (
+          <section className="space-y-8" aria-label={t.nav.discoveryAllEurope}>
+            {discoveryLoading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+                {t.forms.search.messages.loading}
+              </div>
+            ) : (
+              <>
+                <div>
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      {detectedCountry
+                        ? discoveryHeading(t.nav.popularCategories, countryLabel(detectedCountry))
+                        : t.nav.discoveryAllEurope}
+                    </h2>
+                    <Link href={`/${lang}/categories`} className="text-sm font-semibold text-blue-700 hover:underline">
+                      {t.nav.viewAllCategories}
+                    </Link>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    {discoveryCategories.map((item) => (
+                      <button
+                        key={item.slug}
+                        type="button"
+                        onClick={() => openCategory(item.slug)}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+                      >
+                        {categoryLabel(item)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    {detectedCountry
+                      ? discoveryHeading(t.nav.businessesIn, countryLabel(detectedCountry))
+                      : t.nav.discoveryAllEurope}
+                  </h2>
+                  <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {discoveryBusinesses.map((business) => (
+                      <BusinessCard key={business.id} business={business as any} lang={lang} />
+                    ))}
+                  </div>
+                </div>
+
+                {discoveryCountries.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">{t.nav.exploreOtherCountries}</h2>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {discoveryCountries.map((item) => (
+                        <Link
+                          key={item.slug}
+                          href={`${pathname}?country=${encodeURIComponent(item.slug)}`}
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          {countryLabel(item)}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
         {/* Results summary */}
         {total > 0 && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -307,33 +546,30 @@ export default function SearchPageClient() {
             </div>
             <DirectoryViewToggle value={view} onChange={changeView} />
           </div>
+
         )}
 
-        {/* Development debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 text-xs bg-yellow-50 border border-yellow-200 p-2 rounded">
-            <strong>{t.forms.search.messages.debugLabel}:</strong>{" "}
-            {t.forms.search.messages.debugSummary
-              .replace("{total}", String(total))
-              .replace("{country}", country || "-")
-              .replace("{city}", city || "-")
-              .replace("{category}", category || "-")
-              .replace("{query}", q || "-")
-              .replace("{countries}", String(countries.length))
-              .replace("{cities}", String(cities.length))
-              .replace("{categories}", String(categories.length))}
+        {(q || location) && (
+          <p className="mb-4 text-sm text-slate-600">
+            {q && <span>“{q}”</span>}
+            {q && location && <span className="mx-1">in</span>}
+            {location && <span>{location}</span>}
+          </p>
+        )}
+
+        {fallbackMessage && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {fallbackMessage}
           </div>
         )}
 
-        {/* Loading state */}
-        {loading && businesses.length === 0 && (
+        {hasActiveSearch && loading && businesses.length === 0 && (
           <div className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-500">
             {t.forms.search.messages.loading}
           </div>
         )}
 
-        {/* Results */}
-        {view === "grid" ? (
+        {hasActiveSearch && (view === "grid" ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {businesses.map((business) => (
               <BusinessCard key={business.id} business={business as any} lang={lang} />
@@ -341,9 +577,9 @@ export default function SearchPageClient() {
           </div>
         ) : (
           <DirectoryBusinessList businesses={businesses} lang={lang} />
-        )}
+        ))}
 
-        <div className="space-y-4">
+        {hasActiveSearch && <div className="space-y-4">
           {!loading && businesses.length === 0 && !error && (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <div className="text-4xl mb-4">{t.forms.search.messages.noResultsIcon}</div>
@@ -355,9 +591,9 @@ export default function SearchPageClient() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
-        <div className="mt-6 flex items-center justify-between">
+        {hasActiveSearch && <div className="mt-6 flex items-center justify-between">
           <button
             type="button"
             disabled={!canPrev || loading}
@@ -387,7 +623,7 @@ export default function SearchPageClient() {
           >
             {t.forms.search.pagination.next}
           </button>
-        </div>
+        </div>}
         </div>
       </div>
     </div>

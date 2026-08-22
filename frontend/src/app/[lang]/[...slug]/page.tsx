@@ -2,8 +2,9 @@ import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { fetchBusinessDetail } from "@/lib/api";
 import { BusinessDetailPageClient } from "@/components/business/BusinessDetailPageClient";
-import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import Layout from "@/components/Layout";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
+import { fetchBusinessDiscovery } from '@/lib/business-discovery';
 
 type Props = {
   params: Promise<{
@@ -11,6 +12,17 @@ type Props = {
     slug: string[];
   }>;
 };
+
+const BUSINESS_LANGUAGES = ["en", "fr", "de", "es", "pt", "nl"] as const;
+
+function businessHreflangs(path: string): Record<string, string> {
+  return Object.fromEntries(
+    BUSINESS_LANGUAGES.map((language) => [
+      language,
+      path.replace(/^\/[^/]+(?=\/|$)/, `/${language}`),
+    ]),
+  );
+}
 
 // Helper function to resolve business from URL segments
 async function resolveBusiness(segments: string[], lang: string) {
@@ -20,7 +32,7 @@ async function resolveBusiness(segments: string[], lang: string) {
   }
 
   // Exclude known static routes from business resolution
-  const staticRoutes = ['admin', 'blog', 'business', 'businesses', 'categories', 'cities', 'countries', 'list-your-business', 'locations', 'places', 'search', 'towns'];
+  const staticRoutes = ['about', 'admin', 'ai-visibility', 'blog', 'business', 'businesses', 'business-visibility', 'categories', 'check-email', 'cities', 'claim', 'cookies', 'countries', 'dashboard', 'generated', 'generated-business-website', 'get-found-online', 'how-it-works', 'list-your-business', 'locations', 'login', 'places', 'premium-preview', 'pricing', 'privacy', 'promote-your-business-free', 'search', 'signup', 'terms', 'towns', 'verify', 'verify-account'];
   if (staticRoutes.includes(segments[0])) {
     return null;
   }
@@ -77,17 +89,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : `${business.name} - ${business.category?.name || "Business"} in ${business.city?.name || business.country.name}. Find contact details on ListAcrossEU.`;
   }
 
+  const canonicalPath = getBusinessCanonicalPath(business, lang);
   return {
     title,
     description,
     alternates: {
-      canonical: business.canonical_path || `/${lang}/${slug.join('/')}`
+      canonical: canonicalPath,
+      languages: businessHreflangs(canonicalPath),
     },
     openGraph: {
       title,
       description,
       type: "website",
-      url: business.canonical_path || `/${lang}/${slug.join('/')}`,
+      url: getBusinessCanonicalPath(business, lang),
       images: business.logo_url ? [
         {
           url: business.logo_url,
@@ -116,7 +130,7 @@ export default async function LocationBusinessPage({ params }: Props) {
 
   const { business, isCanonical } = result;
   const currentPath = `/${lang}/${slug.join('/')}`;
-  const canonicalPath = business.canonical_path || currentPath;
+  const canonicalPath = getBusinessCanonicalPath(business, lang);
 
   // If the current URL doesn't match the canonical path, redirect
   if (!isCanonical || currentPath !== canonicalPath) {
@@ -167,7 +181,7 @@ export default async function LocationBusinessPage({ params }: Props) {
     jsonLd[key as keyof typeof jsonLd] === undefined && delete jsonLd[key as keyof typeof jsonLd]
   );
 
-  const related = business.tier === 'free' ? await fetchRelatedBusinesses(business) : { items: [], label: business.city?.name || business.country.name };
+  const discovery = await fetchBusinessDiscovery(business, lang);
 
   return (
     <Layout>
@@ -177,28 +191,7 @@ export default async function LocationBusinessPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       
-      <BusinessDetailPageClient business={business} lang={lang} relatedBusinesses={related.items} relatedHeading={related.label} />
+      <BusinessDetailPageClient business={business} lang={lang} discovery={discovery} />
     </Layout>
   );
-}
-
-async function fetchRelatedBusinesses(business: Awaited<ReturnType<typeof fetchBusinessDetail>>) {
-  if (!business.city?.slug) return { items: [], label: business.country.name };
-  const fetchResults = async (params: Record<string, string>) => {
-    const searchParams = new URLSearchParams({ ...params, limit: '12', offset: '0' });
-    const response = await fetch(`${INTERNAL_BACKEND_URL}/api/listings/businesses/search/?${searchParams.toString()}`, {
-      next: { revalidate: 300 }, headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return Array.isArray(data.results) ? data.results : [];
-  };
-  const seen = new Set<number>([business.id]);
-  const related: any[] = [];
-  const add = (items: any[]) => items.forEach((item) => { if (!seen.has(item.id)) { seen.add(item.id); related.push(item); } });
-  add(await fetchResults({ city: business.city.slug }));
-  let label = business.city.name;
-  if (related.length < 6) { add(await fetchResults({ country: business.country.slug })); label = business.country.name; }
-  if (related.length < 6 && business.category?.slug) add(await fetchResults({ country: business.country.slug, category: business.category.slug }));
-  return { items: related.slice(0, 12), label };
 }

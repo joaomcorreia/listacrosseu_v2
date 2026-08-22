@@ -10,6 +10,7 @@ type BlogPostsSliderProps = {
   countrySlug?: string;
   countryName?: string;
   mode?: "country" | "eu";
+  offset?: number;
 };
 
 export default function BlogPostsSlider({
@@ -17,6 +18,7 @@ export default function BlogPostsSlider({
   countrySlug,
   countryName,
   mode,
+  offset = 0,
 }: BlogPostsSliderProps) {
   const t = useTranslations(lang);
   const [posts, setPosts] = useState<BlogPostItem[]>([]);
@@ -54,7 +56,7 @@ export default function BlogPostsSlider({
     });
   }, [countrySlug, posts, resolvedMode]);
 
-  const visiblePosts = filteredPosts.slice(0, 12);
+  const visiblePosts = filteredPosts.slice(offset, offset + 12);
 
   const title =
     resolvedMode === "country" && countryName

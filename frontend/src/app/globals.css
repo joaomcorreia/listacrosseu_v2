@@ -18,6 +18,21 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+@keyframes generated-page-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.generated-page-reveal > main > * {
+  animation: generated-page-reveal 650ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .generated-page-reveal > main > * {
+    animation: none;
+  }
+}
+
 /* Light public forms use a predictable readable baseline. Explicit utility
    classes can still opt into dark/editor surfaces where needed. */
 input:not([type="checkbox"]):not([type="radio"]),
@@ -148,5 +163,129 @@ textarea:disabled {
   }
   100% {
     transform: translate3d(0, 8%, 0);
+  }
+}
+
+/* The listing editor gets the full site content width on the onboarding page. */
+#list-form > div:last-child {
+  width: 100%;
+  max-width: none;
+}
+
+#list-form > div:last-child > main {
+  width: 100%;
+  max-width: none;
+}
+
+/* Give the editor and its preview equal room on larger screens while keeping
+   the existing single-column mobile layout. */
+@media (min-width: 1024px) {
+  #list-form > div:last-child > main > .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+}
+
+/* The postcard and its appearance/actions belong to the preview column, so
+   remove their nested max-width cap without affecting other page sections. */
+#list-form aside .space-y-4 > .max-w-5xl {
+  width: 100%;
+  max-width: none;
+}
+
+/* Keep single-line editor values inside the shared scaled canvas. */
+.postcard-canvas {
+  min-width: 0;
+}
+
+.postcard-canvas input {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.postcard-description-slot {
+  flex: 0 0 29%;
+  min-height: 0;
+  position: relative;
+}
+
+.postcard-description-slot.postcard-description-editing {
+  flex-basis: 24%;
+}
+
+.postcard-description-region {
+  width: 72%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.postcard-description-region > label,
+.postcard-description-field {
+  height: 100%;
+  min-height: 0;
+}
+
+.postcard-description-region > label {
+  display: flex;
+  flex-direction: column;
+}
+
+.postcard-description-input {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.postcard-editor-field select option {
+  background-color: #0f172a;
+  color: #fff;
+}
+
+/* The public form baseline above intentionally makes ordinary controls white.
+   Postcard editor controls are a separate visual surface and need a stronger,
+   scoped cascade than the element-based baseline rules. */
+.postcard-canvas .postcard-editor-input {
+  border-color: rgba(255, 255, 255, 0.28);
+  background-color: rgba(15, 23, 42, 0.4);
+  color: #fff;
+}
+
+.postcard-canvas .postcard-editor-input::placeholder {
+  color: rgba(255, 255, 255, 0.58);
+  opacity: 1;
+}
+
+.postcard-canvas .postcard-editor-input:focus {
+  border-color: var(--postcard-accent, rgba(255, 255, 255, 0.9));
+  background-color: rgba(15, 23, 42, 0.52);
+  color: #fff;
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--postcard-accent, #fff) 35%, transparent);
+}
+
+.postcard-canvas .postcard-editor-input option {
+  background-color: #0f172a;
+  color: #fff;
+}
+
+.postcard-lower-fields {
+  flex: 0 0 auto;
+}
+
+.postcard-languages {
+  min-height: 0;
+}
+
+.postcard-website-region {
+  width: 51%;
+  margin-left: auto;
+  margin-right: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .postcard-description-region,
+  .postcard-website-region {
+    width: 100%;
   }
 }

@@ -8,6 +8,8 @@ import SnowOverlay from "@/components/effects/SnowOverlay";
 import { useTranslations } from "@/i18n/translations";
 import { fetchBusinesses, fetchCountriesWithStats } from "@/lib/api/listings";
 import { fetchHeroEffectSettings } from "@/lib/api";
+import { publicActionHref } from "@/lib/public-actions";
+import DirectorySearchForm from "@/components/DirectorySearchForm";
 
 type Slide = {
   title: string;
@@ -164,12 +166,14 @@ export default function HomeHero() {
               {t.hero.exploreBusiness}
             </Link>
             <Link
-              href={`/${lang}/list-your-business-free`}
+              href={publicActionHref(lang, 'LIST_BUSINESS')}
               className="inline-flex items-center rounded-full bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow hover:bg-purple-500"
             >
               {t.nav.listYourBusiness === "List Your Business" ? "List Your Business Free" : t.nav.listYourBusiness}
             </Link>
           </div>
+
+          <DirectorySearchForm lang={lang} className="mt-6 max-w-3xl" />
 
           <div className="mt-6 flex items-center gap-3">
             <button

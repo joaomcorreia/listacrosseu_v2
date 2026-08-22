@@ -65,7 +65,7 @@ export function BusinessHeader({ business, tierStyles }: BusinessHeaderProps) {
             )}
           </div>
 
-          {business.tier === 'premium' && business.logo_url && (
+          {(business.tier === 'claimed' || business.tier === 'premium') && business.logo_url && (
             <div className="flex-shrink-0">
               <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-2 border-gray-200 bg-white lg:h-32 lg:w-32">
                 <img src={business.logo_url} alt={`${business.name} logo`} className="max-h-full max-w-full object-contain" />

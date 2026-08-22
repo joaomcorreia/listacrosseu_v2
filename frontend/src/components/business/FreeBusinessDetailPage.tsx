@@ -2,22 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Briefcase, Building2, Car, CircleHelp, FileText, HeartPulse, Scissors, Sparkles, Store, Truck, Utensils, Wrench } from 'lucide-react';
+import { ArrowRight, Briefcase, Building2, Car, Check, CircleHelp, FileText, Globe2, HeartPulse, Mail, Phone, Scissors, Sparkles, Store, Truck, Utensils, Wrench } from 'lucide-react';
 import type { BusinessDetail } from '@/lib/api';
 import ClaimBusinessModal from '@/components/ClaimBusinessModal';
 import InnerPageHero from '@/components/InnerPageHero';
 import BlogPostsSlider from '@/components/blog/BlogPostsSlider';
 import { getBusinessCanonicalPath } from '@/lib/businessUrls';
+import { PUBLIC_CLAIM_CTA_ENABLED } from '@/lib/env.public';
 import { ListingAdsBlock } from './ListingAdsBlock';
+import BusinessDiscoverySections from './BusinessDiscoverySections';
+import type { BusinessDiscovery, DiscoveryBusiness } from './BusinessDiscoverySections';
 
-export type RelatedBusiness = {
-  id: number; name: string; slug: string; tier: 'free' | 'claimed' | 'premium';
-  country: { name: string; slug: string }; city: { name: string; slug: string } | null;
-  town?: { name: string; slug: string } | null; category: { name: string; slug: string } | null;
-  address?: string; address_line1?: string; phone?: string; website?: string; description?: string;
-};
+export type RelatedBusiness = DiscoveryBusiness;
 
-type Props = { business: BusinessDetail; relatedBusinesses: RelatedBusiness[]; relatedHeading?: string; lang: string };
+type Props = { business: BusinessDetail; discovery?: BusinessDiscovery; relatedBusinesses?: RelatedBusiness[]; relatedHeading?: string; lang: string };
 
 const ACCENTS = [
   ['border-blue-300', 'bg-blue-100 text-blue-700', 'bg-blue-50 text-blue-800'], ['border-emerald-300', 'bg-emerald-100 text-emerald-700', 'bg-emerald-50 text-emerald-800'],
@@ -45,14 +43,11 @@ function RelatedCard({ business, lang }: { business: RelatedBusiness; lang: stri
   </article>;
 }
 
-export function FreeBusinessDetailPage({ business, relatedBusinesses, relatedHeading, lang }: Props) {
+export function FreeBusinessDetailPage({ business, discovery, relatedBusinesses = [], relatedHeading, lang }: Props) {
   const [claimOpen, setClaimOpen] = useState(false);
   const [border, icon, badge] = getAccent(business);
   const categoryName = business.category?.name || 'Business';
   const locationParts = [business.city?.name, business.country?.name].filter(Boolean);
-  const grouped = relatedBusinesses.reduce<Record<string, RelatedBusiness[]>>((groups, item) => { const key = item.category?.name || 'Other businesses'; (groups[key] ||= []).push(item); return groups; }, {});
-  const usefulGroups = Object.entries(grouped).filter(([, items]) => items.length >= 2).slice(0, 3);
-  const showGroups = usefulGroups.length >= 2;
   const breadcrumbs = [
     { label: 'Home', href: `/${lang}` }, { label: 'Countries', href: `/${lang}/countries` },
     ...(business.country ? [{ label: business.country.name, href: `/${lang}/countries/${business.country.slug}` }] : []),
@@ -69,11 +64,23 @@ export function FreeBusinessDetailPage({ business, relatedBusinesses, relatedHea
         </div>
       </article>
     </section>
-    <section className="w-full bg-white px-4 py-5" aria-label="Claim this business">
-      <div className="mx-auto max-w-[760px] rounded-lg border border-emerald-200 bg-emerald-50 p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-emerald-950">Is this your business? Claim it for free</h2><p className="mt-1 text-sm text-emerald-900">Get more visibility and manage how your business appears on ListAcrossEU.</p></div><button type="button" onClick={() => setClaimOpen(true)} className="shrink-0 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">Claim it for free</button></div><ClaimBusinessModal business={business as never} isOpen={claimOpen} onClose={() => setClaimOpen(false)} /></div>
-    </section>
+    {PUBLIC_CLAIM_CTA_ENABLED && <section className="w-full bg-white px-4 py-5" aria-label="Claim this business">
+      <div className="mx-auto max-w-4xl rounded-lg border border-emerald-200 bg-emerald-50 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-lg font-bold text-emerald-950">Claim this business for free</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-emerald-900">Manage your information, improve how your business appears, and get more visibility on ListAcrossEU.</p></div><button type="button" onClick={() => setClaimOpen(true)} className="shrink-0 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">Claim it for free</button></div>
+        <div className="mt-5 grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+          <div className="rounded-lg border border-emerald-200 bg-white/80 p-3 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Basic listing</p><div className="mt-2 flex items-center gap-2"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700"><CategoryIcon category={business.category?.name} /></div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{business.name}</p><p className="truncate text-xs text-slate-600">{business.category?.name || 'Business'} · {business.city?.name || business.country?.name}</p></div></div></div>
+          <ArrowRight className="mx-auto hidden h-5 w-5 text-emerald-700 sm:block" aria-hidden="true" /><ArrowRight className="mx-auto h-5 w-5 rotate-90 text-emerald-700 sm:hidden" aria-hidden="true" />
+          <div className="overflow-hidden rounded-lg border-2 border-emerald-500 bg-slate-900 p-3 text-white shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Claimed listing</p><div className="mt-2 flex items-center gap-2"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-emerald-300 bg-emerald-900 text-sm font-black text-emerald-200">{business.name.slice(0, 1).toUpperCase() || 'L'}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{business.name}</p><div className="mt-1 flex gap-1.5 text-emerald-200" aria-label="Contact and detail indicators"><Phone className="h-3 w-3" aria-hidden="true" /><Mail className="h-3 w-3" aria-hidden="true" /><Globe2 className="h-3 w-3" aria-hidden="true" /></div></div></div></div>
+        </div>
+        <ul className="mt-5 grid gap-2 text-sm text-emerald-950 sm:grid-cols-2" aria-label="Benefits of claiming this business">
+          {['Edit your business details', 'Add contact information', 'Customize your listing', 'Get more visibility'].map((benefit) => <li key={benefit} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" /><span>{benefit}</span></li>)}
+        </ul>
+        <p className="mt-4 text-center text-sm font-semibold text-emerald-900 sm:text-left">Free to claim. No payment required.</p>
+        <ClaimBusinessModal business={business as never} isOpen={claimOpen} onClose={() => setClaimOpen(false)} />
+      </div>
+    </section>}
     <main className="container mx-auto px-4 py-8"><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start"><div>
-      {relatedBusinesses.length > 0 && business.city?.name && <section className="mx-auto mt-0 max-w-5xl" aria-labelledby="nearby-businesses-heading"><h2 id="nearby-businesses-heading" className="text-2xl font-bold text-slate-950">More businesses in {relatedHeading || business.city.name}</h2>{showGroups ? <div className="mt-6 space-y-8">{usefulGroups.map(([category, items]) => <div key={category}><h3 className="mb-3 text-lg font-semibold text-slate-900">{category}</h3><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.slice(0, 4).map((item) => <RelatedCard key={item.id} business={item} lang={lang} />)}</div></div>)}</div> : <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{relatedBusinesses.slice(0, 12).map((item) => <RelatedCard key={item.id} business={item} lang={lang} />)}</div>}</section>}
+      {discovery ? <BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country.name} countrySlug={business.country.slug} /> : relatedBusinesses.length > 0 && business.city?.name && <section className="mx-auto mt-0 max-w-5xl" aria-labelledby="nearby-businesses-heading"><h2 id="nearby-businesses-heading" className="text-2xl font-bold text-slate-950">More businesses in {relatedHeading || business.city.name}</h2><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{relatedBusinesses.slice(0, 12).map((item) => <RelatedCard key={item.id} business={item} lang={lang} />)}</div></section>}
       <BlogPostsSlider lang={lang} countrySlug={business.country?.slug} countryName={business.country?.name} mode="country" />
     </div><aside className="lg:sticky lg:top-24"><ListingAdsBlock showDirectoryAd={false} /></aside></div></main>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({'@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name, ...(business.description && { description: business.description }), ...(business.website && { url: business.website }), ...(business.phone && { telephone: business.phone }), ...(business.address && { address: { '@type': 'PostalAddress', streetAddress: business.address_line1 || business.address, addressLocality: business.city?.name, addressCountry: business.country?.name } })}) }} />

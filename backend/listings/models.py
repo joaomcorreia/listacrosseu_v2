@@ -60,6 +60,11 @@ class Town(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True, blank=True)
+    is_public = models.BooleanField(
+        default=True,
+        verbose_name="Publish category publicly",
+        help_text="Publish this category in the public directory and SEO pages.",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -73,7 +78,33 @@ class Category(models.Model):
         return self.name
 
 
+class CategorySuggestion(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    proposed_name = models.CharField(max_length=200)
+    listing = models.ForeignKey("Business", on_delete=models.SET_NULL, null=True, blank=True, related_name="category_suggestions")
+    submitted_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="category_suggestions")
+    submitter_email = models.EmailField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="suggestions")
+    reviewer_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.proposed_name} ({self.status})"
+
+
 class Business(models.Model):
+    WEBSITE_MAX_LENGTH = 1000
     # Listing tier choices
     LISTING_TIER_CHOICES = [
         ("free", "Free"),
@@ -101,6 +132,12 @@ class Business(models.Model):
         choices=LISTING_TIER_CHOICES,
         default="free",
         help_text="Listing tier determines display layout and available features"
+    )
+
+    is_published = models.BooleanField(
+        default=True,
+        verbose_name="Published",
+        help_text="Include this listing in the public directory and public APIs.",
     )
 
     visibility_scope = models.CharField(
@@ -134,13 +171,19 @@ class Business(models.Model):
 
     # Business metadata
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    website = models.URLField(blank=True)
+    website = models.URLField(blank=True, max_length=1000)
     phone = models.CharField(max_length=80, blank=True)
+    business_contact_email = models.EmailField(blank=True, max_length=254)
+    whatsapp_number = models.CharField(max_length=80, blank=True)
+    spoken_languages = models.JSONField(default=list, blank=True)
     description = models.TextField(blank=True)
     keywords = models.JSONField(default=list, blank=True)  # Store as array of strings
     
     # Media fields for different tiers
     logo_url = models.URLField(blank=True, help_text="Business logo URL (for Premium tier)")
+    logo_file = models.ImageField(upload_to="business_logos/", blank=True, null=True, help_text="Uploaded logo image")
+    claimed_background_file = models.ImageField(upload_to="business_backgrounds/", blank=True, null=True, help_text="Uploaded Claimed Listing background image")
+    accent_color = models.CharField(max_length=7, default="#2563EB", blank=True)
     image_url = models.URLField(blank=True, help_text="Main business image URL (for Premium tier)")
     
     # Premium content fields
@@ -248,3 +291,15 @@ class BusinessClaimRequest(models.Model):
     
     def __str__(self):
         return f"Claim for {self.business_name} by {self.name}"
+
+
+class AccountVerificationToken(models.Model):
+    user = models.ForeignKey("auth.User", on_delete=models.CASCADE, related_name="account_verification_tokens")
+    claim = models.ForeignKey(BusinessClaimRequest, on_delete=models.SET_NULL, null=True, blank=True, related_name="account_verification_tokens")
+    token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]

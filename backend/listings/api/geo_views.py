@@ -2,13 +2,14 @@
 Geo-specific API views for city and location pages.
 These endpoints are optimized for the frontend location pages.
 """
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from listings.models import Country, City, Town, Business
 from listings.api.serializers import CountrySerializer, CitySerializer, TownSerializer, BusinessSerializer
+from listings.public_querysets import public_businesses
 
 
 class CityDetailView(generics.RetrieveAPIView):
@@ -27,7 +28,7 @@ class CityBusinessesView(APIView):
     def get(self, request, city_slug):
         try:
             city = City.objects.get(slug=city_slug)
-            businesses = Business.objects.filter(city=city).select_related("country", "city", "town", "category")
+            businesses = public_businesses().filter(city=city).select_related("country", "city", "town", "category")
             
             # Apply pagination
             limit = min(int(request.query_params.get('limit', 20)), 100)
@@ -67,7 +68,7 @@ class TownBusinessesView(APIView):
     def get(self, request, town_slug):
         try:
             town = Town.objects.get(slug=town_slug)
-            businesses = Business.objects.filter(town=town).select_related("country", "city", "town", "category")
+            businesses = public_businesses().filter(town=town).select_related("country", "city", "town", "category")
             
             # Apply pagination
             limit = min(int(request.query_params.get('limit', 20)), 100)
@@ -99,7 +100,7 @@ class CitiesWithBusinessesView(APIView):
         country_slug = request.query_params.get('country', None)
         
         cities = City.objects.annotate(
-            business_count=Count('businesses')
+            business_count=Count('businesses', filter=Q(businesses__is_published=True))
         ).filter(business_count__gt=0).select_related('country')
         
         if country_slug:
@@ -135,7 +136,7 @@ class TownsWithBusinessesView(APIView):
         city_slug = request.query_params.get('city', None)
         
         towns = Town.objects.annotate(
-            business_count=Count('businesses')
+            business_count=Count('businesses', filter=Q(businesses__is_published=True))
         ).filter(business_count__gt=0).select_related('city__country')
         
         if city_slug:

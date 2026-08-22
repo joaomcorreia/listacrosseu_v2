@@ -1,9 +1,8 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { normalizeLang } from '@/lib/lang';
-import ListingFlowModal, { type Business as ListingBusiness, type ClaimSubmitData, type ClaimSubmitResult } from './modals/ListingFlowModal';
-import { PUBLIC_API_BASE_URL } from '@/lib/env.public';
 
 interface Business {
   id: number;
@@ -52,81 +51,23 @@ interface ClaimBusinessModalProps {
   business?: Business;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit?: (data: ClaimSubmitData) => Promise<void>;
 }
 
 export default function ClaimBusinessModal({
   business,
   isOpen,
   onClose,
-  onSubmit,
 }: ClaimBusinessModalProps) {
   const params = useParams();
+  const router = useRouter();
   const lang = normalizeLang(String(params?.lang || "en"));
-  const getCsrfToken = () => {
-    const name = "csrftoken";
-    const cookies = document.cookie.split(";");
-    for (const cookie of cookies) {
-      const [key, value] = cookie.trim().split("=");
-      if (key === name) return value;
+  useEffect(() => {
+    if (isOpen && business?.id && business.slug) {
+      router.push(`/${lang}/claim?business=${business.id}&slug=${encodeURIComponent(business.slug)}`);
+      onClose();
     }
-    return "";
-  };
-
-  const submitHandler =
-    onSubmit ||
-    (async (data: ClaimSubmitData): Promise<ClaimSubmitResult> => {
-      const response = await fetch(`${PUBLIC_API_BASE_URL}/api/claims`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCsrfToken(),
-        },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("API Error:", response.status, errorData);
-        throw new Error(errorData.message || `Failed to submit claim: ${response.status}`);
-      }
-      return response.json();
-    });
-
-  const hasBusiness = Boolean(business);
-  const listingBusiness: ListingBusiness = {
-    id: business?.id ? String(business.id) : '0',
-    slug: business?.slug || 'preview',
-    name: business?.name || '',
-    description: business?.description,
-    category: business?.category ? { name: business.category.name } : undefined,
-    city: business?.city ? { name: business.city.name } : undefined,
-    town: business?.town ? { name: business.town.name } : undefined,
-    country: business?.city?.country
-      ? { name: business.city.country.name }
-      : business?.town?.city?.country
-        ? { name: business.town.city.country.name }
-        : business?.country
-          ? { name: business.country.name }
-          : undefined,
-    address: business?.address_line1 || business?.address,
-    phone: business?.phone,
-    website: business?.website,
-    keywords: business?.keywords,
-    tier: business?.tier || 'free',
-  };
-
-  return (
-    <ListingFlowModal
-      open={isOpen}
-      onClose={onClose}
-      lang={lang}
-      business={listingBusiness}
-      startStep="claim"
-      onSubmit={submitHandler}
-      showPreview={hasBusiness}
-    />
-  );
+  }, [business, isOpen, lang, onClose, router]);
+  return null;
 }
 
 

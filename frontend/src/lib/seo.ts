@@ -6,10 +6,16 @@ export interface SEOConfig {
   title: string;
   description: string;
   canonical?: string;
+  hreflangPath?: string;
   ogImage?: string;
   noindex?: boolean;
   keywords?: string[];
   schema?: object;
+}
+
+function deriveHreflangPath(canonical?: string): string {
+  if (!canonical || !canonical.startsWith("/")) return "";
+  return canonical.replace(/^\/[^/]+(?=\/|$)/, "");
 }
 
 export function generateSEO(config: SEOConfig, lang: string = 'en'): Metadata {
@@ -48,11 +54,12 @@ export function generateSEO(config: SEOConfig, lang: string = 'en'): Metadata {
   const fullTitle = `${config.title} | ${siteName}`;
   const fullDescription = config.description || t.tagline;
   const canonical = config.canonical ? `${baseUrl}${config.canonical}` : baseUrl;
+  const hreflangPath = config.hreflangPath ?? deriveHreflangPath(config.canonical);
   const ogImage = config.ogImage || `${baseUrl}/og-image.jpg`;
   const robots: Metadata['robots'] = effectiveNoIndex
     ? {
         index: false,
-        follow: false,
+        follow: true,
       }
     : {
         index: true,
@@ -82,12 +89,12 @@ export function generateSEO(config: SEOConfig, lang: string = 'en'): Metadata {
     alternates: {
       canonical,
       languages: {
-        en: `${baseUrl}/en`,
-        fr: `${baseUrl}/fr`,
-        de: `${baseUrl}/de`,
-        es: `${baseUrl}/es`,
-        pt: `${baseUrl}/pt`,
-        nl: `${baseUrl}/nl`,
+        en: `${baseUrl}/en${hreflangPath}`,
+        fr: `${baseUrl}/fr${hreflangPath}`,
+        de: `${baseUrl}/de${hreflangPath}`,
+        es: `${baseUrl}/es${hreflangPath}`,
+        pt: `${baseUrl}/pt${hreflangPath}`,
+        nl: `${baseUrl}/nl${hreflangPath}`,
       },
     },
     robots,

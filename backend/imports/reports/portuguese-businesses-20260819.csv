@@ -1,0 +1,8 @@
+﻿"name","city","category","website","website_status","source_id","source_reason","pipeline_status"
+"Mercato Ã¡ Portuguesa","anderlecht","","","NO_WEBSITE","osm:node/13412965827","name=Mercato Ã¡ Portuguesa","review (uncategorized/missing category mapping)"
+"CafÃ© Portugal","brussels","restaurant","http://www.cafe-portugal.be/fr/","WEBSITE_PRESENT","osm:node/4112667991","name=CafÃ© Portugal","imported (published; canonical city Ixelles after boundary correction)"
+"Churrasqueira Portugalia","brussels","restaurant","https://churrasqueiraportugalia.be/","WEBSITE_PRESENT","osm:node/10555029228","name=Churrasqueira Portugalia","imported (published; canonical city Ixelles after boundary correction)"
+"Lusitano","brussels","bars-pubs","","NO_WEBSITE","osm:node/6815860564","name=Lusitano","imported (published; canonical city Ixelles after boundary correction)"
+"CafÃ© Portugal","ixelles","restaurant","http://www.cafe-portugal.be/fr/","WEBSITE_PRESENT","osm:node/4112667991","name=CafÃ© Portugal","imported (published; canonical city Ixelles after boundary correction)"
+"Churrasqueira Portugalia","ixelles","restaurant","https://churrasqueiraportugalia.be/","WEBSITE_PRESENT","osm:node/10555029228","name=Churrasqueira Portugalia","imported (published; canonical city Ixelles after boundary correction)"
+"Lusitano","ixelles","bars-pubs","","NO_WEBSITE","osm:node/6815860564","name=Lusitano","imported (published; canonical city Ixelles after boundary correction)"

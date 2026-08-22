@@ -1,7 +1,7 @@
 import Layout from '@/components/Layout';
-import ListYourBusinessPageClient from '@/components/ListYourBusinessPageClient';
+import ListYourBusinessOnboardingClient from '@/components/ListYourBusinessOnboardingClient';
 
 export default async function ListYourBusinessPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
-  return <Layout><ListYourBusinessPageClient lang={lang} /></Layout>;
+  return <Layout showBlogSlider={false}><ListYourBusinessOnboardingClient lang={lang} /></Layout>;
 }

@@ -102,37 +102,39 @@ ALLOWED_HOSTS = get_env_list(
 
 CSRF_TRUSTED_ORIGINS = get_env_list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=[
-        "http://127.0.0.1:3000",
-        "http://localhost:3000",
-        "http://127.0.0.1:3004",
-        "http://localhost:3004",
-    ] if DEBUG else [],
+    default=["http://127.0.0.1:3004"] if DEBUG else [],
 )
 
 CORS_ALLOWED_ORIGINS = get_env_list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
-    default=[
-        "http://127.0.0.1:3000",
-        "http://localhost:3000",
-        "http://127.0.0.1:3004",
-        "http://localhost:3004",
-    ] if DEBUG else [],
+    default=["http://127.0.0.1:3004"] if DEBUG else [],
 )
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGIN_REGEXES = get_env_list(
+    "DJANGO_CORS_ALLOWED_ORIGIN_REGEXES",
+    default=[r"^https?://[a-z0-9-]+\.listacross\.local:3004$"] if DEBUG else [],
+)
 
 PUBLIC_SITE_URL = get_env(
     "NEXT_PUBLIC_SITE_URL",
-    default="http://localhost:3004" if DEBUG else "",
+    default="http://127.0.0.1:3004" if DEBUG else "",
 )
 FRONTEND_SITE_URL = PUBLIC_SITE_URL.rstrip("/")
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 STAGING_NOINDEX = get_env_bool("STAGING_NOINDEX", default=False)
 EXPOSE_PUBLIC_DEBUG_ENDPOINTS = get_env_bool("EXPOSE_PUBLIC_DEBUG_ENDPOINTS", default=DEBUG)
 ENABLE_VISUAL_HOMEPAGE_EDITOR = get_env_bool(
     "ENABLE_VISUAL_HOMEPAGE_EDITOR",
     default=DEBUG,
+)
+# Deliberately disabled by default. This is a local-only test hook until the
+# billing system exposes an authoritative first-paid-month entitlement.
+GENERATED_WEBSITE_ATTRIBUTION_TEST_ELIGIBLE = (
+    DEBUG and get_env_bool("GENERATED_WEBSITE_ATTRIBUTION_TEST_ELIGIBLE", default=False)
 )
 
 INSTALLED_APPS = [
@@ -144,6 +146,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sitemaps",
     "rest_framework",
+    "anymail",
     "corsheaders",
     "django_filters",
     "listings",
@@ -202,6 +205,9 @@ EMAIL_BACKEND = get_env(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
 )
+ANYMAIL = {
+    "RESEND_API_KEY": get_env("RESEND_API_KEY", default=""),
+}
 EMAIL_HOST = get_env("EMAIL_HOST", default="")
 EMAIL_PORT = get_env_int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = get_env("EMAIL_HOST_USER", default="")

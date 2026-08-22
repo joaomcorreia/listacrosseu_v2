@@ -1,6 +1,23 @@
 import Layout from "@/components/Layout";
 import InnerPageHero from "@/components/InnerPageHero";
 import CategoriesPageClient from "@/components/CategoriesPageClient";
+import { generateSEO } from "@/lib/seo";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
+  return generateSEO(
+    {
+      title: "Business categories",
+      description: "Browse European businesses by category on ListAcross EU.",
+      canonical: `/${lang}/categories`,
+    },
+    lang,
+  );
+}
 
 export default async function CategoriesPage({
   params,

@@ -5,11 +5,13 @@ import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const response = await fetch(`${INTERNAL_BACKEND_URL}/api/claims/`, {
+    const response = await fetch(`${INTERNAL_BACKEND_URL}/api/claims`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+        ...(request.headers.get("cookie") ? { Cookie: request.headers.get("cookie")! } : {}),
+        ...(request.headers.get("x-csrftoken") ? { "X-CSRFToken": request.headers.get("x-csrftoken")! } : {}),
       },
       body: JSON.stringify(body),
     });

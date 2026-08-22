@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") || "";
+    const location = searchParams.get("location") || "";
     const country = searchParams.get("country") || "";
     const city = searchParams.get("city") || "";
     const category = searchParams.get("category") || "";
@@ -15,10 +16,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    debugLog("Next.js API Search Request:", { q, country, city, category, town, isMicro, limit, offset });
+    debugLog("Next.js API Search Request:", { q, location, country, city, category, town, isMicro, limit, offset });
 
     const backendParams = new URLSearchParams();
     if (q) backendParams.append("q", q);
+    if (location) backendParams.append("location", location);
     if (country) backendParams.append("country", country);
     if (city) backendParams.append("city", city.trim().toLowerCase());
     if (category) backendParams.append("category", category);

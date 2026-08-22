@@ -1,0 +1,70 @@
+{
+  "source": "OpenStreetMap Overpass",
+  "attribution": "OpenStreetMap contributors (ODbL 1.0)",
+  "cities": [
+    {
+      "city": "ixelles",
+      "raw_candidates": 2456,
+      "after_chain_non_business_filter": 2410,
+      "existing_duplicates": 95,
+      "incoming_duplicates": 0,
+      "ambiguous_duplicates": 0,
+      "clean_import_candidates": 2277,
+      "category_review": 38,
+      "rejection_reasons": {
+        "obvious_chain": 46
+      },
+      "category_distribution": {
+        "REVIEW_REQUIRED": 38,
+        "accounting-firms": 1,
+        "bars-pubs": 215,
+        "beauty-salon": 245,
+        "bookstore": 39,
+        "cafe": 180,
+        "car-dealers": 16,
+        "clothing-store": 216,
+        "creative-services": 11,
+        "dentist": 34,
+        "electronics-stores": 9,
+        "fast-food": 188,
+        "gym": 30,
+        "hotel": 45,
+        "jewelry-stores": 48,
+        "legal-services": 14,
+        "pastry-shops": 83,
+        "pharmacy": 98,
+        "physiotherapy": 6,
+        "real-estate-agencies": 41,
+        "restaurant": 695,
+        "retail": 1,
+        "shoe-stores": 34,
+        "supermarkets": 16,
+        "veterinary": 12
+      },
+      "website_status": {
+        "NO_WEBSITE": 1394,
+        "SOCIAL_ONLY": 80,
+        "WEBSITE_PRESENT": 841
+      },
+      "unknown_category_concepts": {
+        "amenity=internet_cafe": 2,
+        "amenity=public_bath": 1,
+        "amenity=public_bookcase": 9,
+        "shop=car_parts": 2,
+        "shop=car_pound": 1,
+        "shop=car_repair": 14,
+        "shop=carpet": 5,
+        "shop=hairdresser_supply": 4
+      },
+      "timing_seconds": {
+        "candidate_parsing": 14.443,
+        "normalization": 0.08,
+        "deduplication": 52.542,
+        "artifact_generation": 0.278
+      }
+    }
+  ],
+  "timing_seconds": {
+    "artifact_generation": 0.276
+  }
+}

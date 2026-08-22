@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { fetchCategories, type Category } from '@/lib/api/listings';
 import { useTranslations } from '@/i18n/translations';
 import { debugWarn } from '@/lib/debug';
+import { isPublicCategory } from '@/lib/public-categories';
 
 interface CategoryMarqueeProps {
   lang: string;
@@ -34,7 +35,7 @@ const CategoryMarquee: React.FC<CategoryMarqueeProps> = ({ lang }) => {
 
   const featuredCategories = useMemo(() => {
     const sorted = [...categories]
-      .filter((category) => category.slug !== 'uncategorized' && category.name !== 'Uncategorized')
+      .filter(isPublicCategory)
       .sort((a, b) => (b.business_count || 0) - (a.business_count || 0));
     return sorted.slice(0, 6);
   }, [categories]);

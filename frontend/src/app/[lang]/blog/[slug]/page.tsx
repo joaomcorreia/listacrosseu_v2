@@ -9,6 +9,8 @@ import { PUBLIC_SITE_URL } from "@/lib/env.public";
 
 export const revalidate = 3600;
 
+const BLOG_LANGUAGES = ["en", "fr", "de", "es", "pt", "nl"] as const;
+
 async function fetchBlogPostDetail(
   slug: string,
   lang: string,
@@ -32,6 +34,27 @@ async function fetchBlogPosts(lang: string): Promise<BlogPostListItem[]> {
   if (!res.ok) {
     return [];
   }
+  const json = await res.json();
+  return Array.isArray(json) ? (json as BlogPostListItem[]) : [];
+}
+
+async function fetchBlogAlternates(baseSlug: string, siteUrl: string): Promise<Record<string, string>> {
+  const entries: Array<[string, string] | null> = await Promise.all(
+    BLOG_LANGUAGES.map(async (language) => {
+      const posts = await fetchBlogPostsForLanguage(baseSlug, language);
+      const translatedSlug = posts[0]?.slug;
+      return translatedSlug ? [language, `${siteUrl}/${language}/blog/${translatedSlug}`] : null;
+    }),
+  );
+  return Object.fromEntries(entries.filter((entry): entry is [string, string] => Boolean(entry)));
+}
+
+async function fetchBlogPostsForLanguage(baseSlug: string, lang: string): Promise<BlogPostListItem[]> {
+  const res = await fetch(
+    `${INTERNAL_BACKEND_URL}/api/blog/?lang=${encodeURIComponent(lang)}&slugs=${encodeURIComponent(baseSlug)}`,
+    { next: { revalidate: 3600 } },
+  );
+  if (!res.ok) return [];
   const json = await res.json();
   return Array.isArray(json) ? (json as BlogPostListItem[]) : [];
 }
@@ -106,11 +129,13 @@ export async function generateMetadata({
 
     const ogImages = post.hero_image_url ? [{ url: post.hero_image_url }] : undefined;
 
+    const languages = await fetchBlogAlternates(post.slug, siteUrl);
     return {
       title: metaTitle,
       description: metaDesc,
       alternates: {
         canonical,
+        languages,
       },
       openGraph: {
         title: metaTitle,

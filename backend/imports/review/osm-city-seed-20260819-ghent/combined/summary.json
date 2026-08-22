@@ -1,0 +1,75 @@
+{
+  "source": "OpenStreetMap Overpass",
+  "attribution": "OpenStreetMap contributors (ODbL 1.0)",
+  "cities": [
+    {
+      "city": "ghent",
+      "raw_candidates": 3965,
+      "after_chain_non_business_filter": 3895,
+      "existing_duplicates": 237,
+      "incoming_duplicates": 0,
+      "ambiguous_duplicates": 0,
+      "clean_import_candidates": 3507,
+      "category_review": 152,
+      "rejection_reasons": {
+        "obvious_chain": 70
+      },
+      "category_distribution": {
+        "REVIEW_REQUIRED": 151,
+        "accounting-firms": 15,
+        "bars-pubs": 451,
+        "beauty-salon": 330,
+        "bookstore": 20,
+        "cafe": 188,
+        "car-dealers": 100,
+        "clothing-store": 267,
+        "creative-services": 30,
+        "dentist": 74,
+        "electronics-stores": 19,
+        "fast-food": 347,
+        "gym": 47,
+        "hostels": 12,
+        "hotel": 59,
+        "jewelry-stores": 57,
+        "legal-services": 71,
+        "pastry-shops": 186,
+        "pharmacy": 168,
+        "physiotherapy": 60,
+        "real-estate-agencies": 75,
+        "restaurant": 785,
+        "shoe-stores": 45,
+        "supermarkets": 61,
+        "veterinary": 40
+      },
+      "website_status": {
+        "NO_WEBSITE": 1765,
+        "SOCIAL_ONLY": 135,
+        "WEBSITE_PRESENT": 1758
+      },
+      "unknown_category_concepts": {
+        "amenity=cafe;animal_shelter": 1,
+        "amenity=internet_cafe": 1,
+        "amenity=parking,fuel,toilets,cafe,restaurant": 1,
+        "amenity=public_bookcase": 56,
+        "amenity=public_building": 4,
+        "shop=car_parts": 10,
+        "shop=car_repair": 71,
+        "shop=caravan": 1,
+        "shop=carpet": 3,
+        "shop=carpet;curtain;fabric": 1,
+        "shop=hairdresser_supply": 1,
+        "shop=newsagent;bakery": 1,
+        "shop=wine;books": 1
+      },
+      "timing_seconds": {
+        "candidate_parsing": 11.092,
+        "normalization": 0.112,
+        "deduplication": 82.145,
+        "artifact_generation": 0.461
+      }
+    }
+  ],
+  "timing_seconds": {
+    "artifact_generation": 0.464
+  }
+}

@@ -5,6 +5,7 @@ import { generateBreadcrumbSchema } from "@/lib/schema";
 import { generateSEO } from "@/lib/seo";
 import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
+import { notFound } from "next/navigation";
 
 interface CountryPageProps {
   params: Promise<{
@@ -46,6 +47,7 @@ export async function generateMetadata({
 }) {
   const { lang, countrySlug } = await params;
   const country = await fetchCountry(countrySlug);
+  if (!country) notFound();
 
   const countryName = country?.name || countrySlug;
   const title = `Businesses in ${countryName}`;
@@ -71,6 +73,7 @@ export async function generateMetadata({
 export default async function CountryPage({ params }: CountryPageProps) {
   const { lang, countrySlug } = await params;
   const country = await fetchCountry(countrySlug);
+  if (!country) notFound();
 
   const baseUrl = PUBLIC_SITE_URL;
   const breadcrumbs = [

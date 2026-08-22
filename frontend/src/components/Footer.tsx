@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { normalizeLang } from '@/lib/lang';
 import { useTranslations } from '@/i18n/translations';
+import { publicActionHref, type PublicAction } from '@/lib/public-actions';
 
 type FooterSourceKey = 'googlePlaces' | 'marketResearch' | 'chamberCommerce' | 'industryNews' | 'euRegulations';
 type FooterBlogKey = 'businessTips' | 'marketInsights' | 'successStories' | 'industryNews' | 'euRegulations';
@@ -38,12 +39,12 @@ const visibilityLinks = [
   { label: 'Get found online', href: '/get-found-online' },
 ];
 
-const directoryLinks = [
-  { label: 'List your business free', href: '/list-your-business-free' },
+const directoryLinks: Array<{ label: string; href?: string; action?: PublicAction }> = [
+  { label: 'List your business free', action: 'LIST_BUSINESS' as const },
   { label: 'Belgium free listings', href: '/free-business-listing-belgium' },
   { label: 'Antwerp businesses', href: '/free-business-listing-antwerp' },
   { label: 'Anderlecht businesses', href: '/free-business-listing-anderlecht' },
-  { label: 'Generated Business Website', href: '/generated-business-website' },
+  { label: 'Generated Business Website', action: 'TRY_GENERATED_WEBSITE' as const },
   { label: 'Pricing', href: '/pricing' },
 ];
 
@@ -202,7 +203,7 @@ export default function Footer() {
             <div>
               <h3 className="mb-6 text-lg font-semibold text-amber-300">Directory</h3>
               <ul className="space-y-3">
-                {directoryLinks.map((link) => <li key={link.href}><a href={`/${lang}${link.href}`} className="text-sm text-slate-300 transition-colors hover:text-white">{link.label}</a></li>)}
+              {directoryLinks.map((link) => <li key={link.label}><a href={link.action ? publicActionHref(lang, link.action) : `/${lang}${link.href || ''}`} className="text-sm text-slate-300 transition-colors hover:text-white">{link.label}</a></li>)}
               </ul>
             </div>
           </div>
@@ -211,6 +212,17 @@ export default function Footer() {
             <div className="flex flex-col items-center justify-between md:flex-row">
               <p className="text-sm text-slate-400">
                 {t.footer.copyright.replace('{year}', '2025').replace('{legal}', t.footer.legal)}
+              </p>
+              <p className="mt-3 text-sm text-slate-400 md:mt-0">
+                Map data ©{' '}
+                <a
+                  href="https://www.openstreetmap.org/copyright"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline transition-colors hover:text-white"
+                >
+                  OpenStreetMap contributors
+                </a>
               </p>
               <div className="mt-4 flex space-x-6 md:mt-0">
                 <a href={`/${lang}/how-it-works`} className="text-sm text-slate-400 transition-colors hover:text-white">How it works</a>

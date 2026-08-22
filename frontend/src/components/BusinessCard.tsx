@@ -63,6 +63,7 @@ interface Business {
   description?: string;
   logo_url?: string;
   image_url?: string;
+  accent_color?: string;
   canonical_path?: string;
 }
 
@@ -102,6 +103,10 @@ function getCategoryLabel(business: Business) {
   const categoryValue = (business as any).category;
   if (typeof categoryValue === "string") return categoryValue;
   return business.category?.name || business.category_name || "";
+}
+
+function getClaimedAccent(business: Business) {
+  return business.tier === 'claimed' && /^#[0-9A-F]{6}$/i.test(business.accent_color || '') ? business.accent_color : '#2563EB';
 }
 
 function CategoryBadge({ label }: { label: string }) {
@@ -257,13 +262,15 @@ function ClaimedBusinessCard({
   const websiteLabel = business.website
     ? business.website.replace(/^https?:\/\//, "").replace(/^www\./, "")
     : "";
+  const accent = getClaimedAccent(business);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-lg border-2 bg-white shadow-sm transition-shadow hover:shadow-md" style={{ borderColor: accent }}>
       <div className="space-y-3 p-4">
+        {business.logo_url && <div className="flex h-16 w-full items-center justify-center rounded-md bg-slate-50 p-2"><img src={business.logo_url} alt={`${business.name} logo`} className="h-full max-w-full object-contain" /></div>}
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-lg font-bold text-gray-900">{business.name}</h3>
-          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" style={{ color: accent, backgroundColor: `${accent}14` }}>
             {t.badges.verified}
           </span>
         </div>

@@ -1,16 +1,23 @@
 import logging
+import re
 import uuid
 
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db.models import Case, Count, IntegerField, Q, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from rest_framework.views import APIView
 from listings.models import Business, Country, City, Town, Category, BusinessClaimRequest
+from listings.directory_indexability import is_country_category_indexable
+from listings.public_querysets import public_businesses, public_categories
+from listings.claim_flow import normalize_claimed_draft, save_claimed_draft
+from listings.category_suggestions import ensure_category_suggestion, resolve_pending_category_suggestions
 from .serializers import (
     BusinessSerializer,
     CountrySerializer,
@@ -24,14 +31,26 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _search_terms(value):
+    """Return simple, punctuation-tolerant terms and singular variants."""
+    normalized = re.sub(r"[^\w\s-]", " ", (value or "").lower(), flags=re.UNICODE)
+    terms = []
+    for token in normalized.split():
+        if len(token) > 4 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        if token and token not in terms:
+            terms.append(token)
+    return terms
+
+
 class BusinessList(generics.ListAPIView):
-    queryset = Business.objects.all().select_related("country", "city", "category")
+    queryset = public_businesses().select_related("country", "city", "category")
     serializer_class = BusinessSerializer
 
 
 class BusinessDetail(generics.RetrieveAPIView):
     lookup_field = "slug"
-    queryset = Business.objects.all().select_related("country", "city", "category")
+    queryset = public_businesses().select_related("country", "city", "category")
     serializer_class = BusinessSerializer
 
 
@@ -46,7 +65,7 @@ class CountryStatsListView(generics.ListAPIView):
     
     def get_queryset(self):
         return Country.objects.annotate(
-            business_count=Count('businesses'),
+            business_count=Count('businesses', filter=Q(businesses__is_published=True)),
             city_count=Count('cities')
         ).filter(
             business_count__gt=0  # Only countries with businesses
@@ -70,8 +89,9 @@ class TownList(generics.ListAPIView):
         return queryset
 
 
+@method_decorator(never_cache, name="dispatch")
 class CategoryList(generics.ListAPIView):
-    queryset = Category.objects.all()
+    queryset = public_categories()
     serializer_class = CategorySerializer
 
 
@@ -89,69 +109,88 @@ def create_claim(request):
     data = request.data
 
     business_id = data.get("business_id") or data.get("listing_id")
-    business = Business.objects.filter(id=business_id).first() if business_id else None
+    business = Business.objects.filter(id=business_id, is_published=True).first() if business_id else None
+    if business is None:
+        return Response({"detail": "Choose an existing published business listing."}, status=status.HTTP_400_BAD_REQUEST)
 
-    claim = BusinessClaimRequest.objects.create(
-        listing=business,
-        name=data.get("name"),
-        email=data.get("email"),
-        business_name=data.get("business_name"),
-        business_address=data.get("business_address"),
-        business_post_code=data.get("business_post_code"),
-    )
+    email = (request.user.email if request.user.is_authenticated else str(data.get("email") or "").strip().lower())
+    required = (data.get("name"), email, data.get("business_name"), data.get("business_address"), data.get("business_post_code"))
+    if any(not str(value or "").strip() for value in required):
+        return Response({"detail": "Name, email, business name, address and post code are required."}, status=status.HTTP_400_BAD_REQUEST)
+    draft_payload = data.get("draft") if isinstance(data.get("draft"), dict) else {}
+    if len(str(draft_payload.get("website") or "").strip()) > Business.WEBSITE_MAX_LENGTH:
+        return Response({"detail": f"Website URLs must be {Business.WEBSITE_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
+    category_suggestion = str(draft_payload.get("category_suggestion") or "").strip()
 
-    verification_base_url = settings.FRONTEND_SITE_URL or settings.PUBLIC_SITE_URL or ""
-    verification_url = f"{verification_base_url.rstrip('/')}/verify?token={claim.verification_token}" if verification_base_url else f"/verify?token={claim.verification_token}"
-    logger.info("Attempting to send verification email for claim_id=%s", claim.id)
+    verified_claim = BusinessClaimRequest.objects.filter(listing=business, status="verified").order_by("-created_at").first()
+    if verified_claim:
+        if verified_claim.email.lower() == email.lower():
+            return Response({"message": "This business is already linked to your verified account.", "claim_id": verified_claim.id, "business_id": business.id, "claim_status": "verified"})
+        return Response({"detail": "This business has already been claimed by another verified owner."}, status=status.HTTP_409_CONFLICT)
 
-    is_console_backend = settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend"
-
-    try:
-        delivered = send_mail(
-            subject="Verify your business claim on ListAcross.eu",
-            message=f"Click here to verify: {verification_url}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[claim.email],
-            fail_silently=False,
+    pending = BusinessClaimRequest.objects.filter(listing=business, email__iexact=email, status="pending").order_by("-created_at").first()
+    draft = normalize_claimed_draft(business, data.get("draft"))
+    if pending:
+        claim = pending
+    else:
+        claim = BusinessClaimRequest.objects.create(
+            listing=business,
+            name=str(data.get("name")).strip(),
+            email=email,
+            business_name=str(data.get("business_name")).strip(),
+            business_address=str(data.get("business_address")).strip(),
+            business_post_code=str(data.get("business_post_code")).strip(),
         )
-        logger.info("Verification email sent for claim_id=%s", claim.id)
-    except Exception as e:
-        logger.exception("Verification email failed for claim_id=%s", claim.id)
-        return Response(
-            {
-                "message": "Claim created, but the verification email could not be delivered.",
-                "claim_id": claim.id,
-                "email_status": "failed",
-            },
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+    save_claimed_draft(business, draft)
+    selected_category = Category.objects.filter(
+        pk=draft.get("category_id"), is_public=True,
+    ).exclude(slug="uncategorized").first() if draft.get("category_id") else None
+    if selected_category and not category_suggestion:
+        business.category = selected_category
+        business.save(update_fields=["category"])
+        resolve_pending_category_suggestions(listing=business, category=selected_category)
+    if category_suggestion:
+        ensure_category_suggestion(proposed_name=category_suggestion, listing=business, user=request.user, email=email)
 
-    if not delivered:
-        logger.error("Verification email backend reported no delivery for claim_id=%s", claim.id)
-        return Response(
-            {
-                "message": "Claim created, but the verification email could not be delivered.",
-                "claim_id": claim.id,
-                "email_status": "failed",
-            },
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+    if request.user.is_authenticated:
+        claim.status = "verified"
+        claim.verified_at = timezone.now()
+        claim.save(update_fields=["status", "verified_at"])
+        return Response({"message": "Claim verified. Your Claimed Listing draft is ready.", "claim_id": claim.id, "business_id": business.id, "claim_status": "verified", "claimed_listing_status": "draft"}, status=status.HTTP_201_CREATED)
 
-    if is_console_backend and settings.DEBUG:
-        return Response(
-            {
-                "message": "Verification link created. Check the development mail output.",
-                "claim_id": claim.id,
-                "email_status": "console",
-                "verification_url": verification_url,
-            },
-            status=status.HTTP_201_CREATED,
-        )
+    from django.contrib.auth import get_user_model
+    user = get_user_model().objects.filter(email__iexact=email).first()
+    if user is None:
+        password = str(data.get("password") or "")
+        if len(password) < 8:
+            return Response({"detail": "Choose a password of at least 8 characters to continue."}, status=status.HTTP_400_BAD_REQUEST)
+        user = get_user_model().objects.create_user(username=email, email=email, password=password, is_active=False)
+        from .dashboard import _send_account_verification
+        try:
+            _send_account_verification(user, claim)
+        except Exception:
+            user.delete()
+            return Response({"detail": "We could not send the verification email. Please try again."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"message": "Account created. Check your email to verify your claim.", "claim_id": claim.id, "business_id": business.id, "claim_status": claim.status, "claimed_listing_status": "draft", "account_created": True, "claim_token": str(claim.verification_token), "email": email}, status=status.HTTP_201_CREATED)
 
-    return Response(
-        {"message": "Verification email sent", "claim_id": claim.id, "email_status": "sent"},
-        status=status.HTTP_201_CREATED,
-    )
+    if not user.is_active:
+        from .dashboard import _send_account_verification
+        try:
+            _send_account_verification(user, claim)
+        except Exception:
+            return Response({"detail": "We could not send the verification email. Please try again."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"message": "Your account needs email verification before this claim can continue.", "claim_id": claim.id, "business_id": business.id, "claim_status": claim.status, "claimed_listing_status": "draft", "account_created": False, "claim_token": str(claim.verification_token), "email": email}, status=status.HTTP_201_CREATED)
+
+    return Response({"message": "Sign in to continue this claim for your account.", "claim_id": claim.id, "business_id": business.id, "claim_status": claim.status, "claimed_listing_status": "draft", "account_exists": True, "claim_token": str(claim.verification_token), "email": email}, status=status.HTTP_201_CREATED)
+
+    return Response({
+        "message": "Claim started. Create an account or sign in with this email to receive the verification email.",
+        "claim_id": claim.id,
+        "business_id": business.id,
+        "claim_status": claim.status,
+        "claim_token": str(claim.verification_token),
+        "email": claim.email,
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET"])
@@ -171,32 +210,9 @@ def verify_claim(request):
     except (TypeError, ValueError, AttributeError):
         return Response({"error": "Invalid verification token"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        claim = BusinessClaimRequest.objects.get(verification_token=token_uuid)
-
-        if claim.status == "verified":
-            if claim.listing and claim.listing.tier == "free":
-                claim.listing.tier = "claimed"
-                claim.listing.save(update_fields=["tier"])
-            return Response({"message": "Already verified", "claim_id": claim.id, "business_id": claim.listing_id})
-
-        claim.status = "verified"
-        claim.verified_at = timezone.now()
-        claim.save()
-        if claim.listing and claim.listing.tier == "free":
-            claim.listing.tier = "claimed"
-            claim.listing.save(update_fields=["tier"])
-
-        return Response(
-            {
-                "message": "Claim verified successfully",
-                "claim_id": claim.id,
-                "business_id": claim.listing_id,
-                "business_name": claim.business_name,
-            }
-        )
-    except BusinessClaimRequest.DoesNotExist:
+    if not BusinessClaimRequest.objects.filter(verification_token=token_uuid).exists():
         return Response({"error": "Invalid token"}, status=status.HTTP_404_NOT_FOUND)
+    return Response({"error": "Account verification is required. Use the verification link sent after account creation."}, status=status.HTTP_410_GONE)
 
 
 class BusinessSearchView(APIView):
@@ -205,6 +221,7 @@ class BusinessSearchView(APIView):
 
     Supports query parameters:
     - q: free text search
+    - location: free text city, region, or country search
     - country: country slug or name (case-insensitive)
     - city: city slug or name (case-insensitive)
     - category: category slug or name (case-insensitive)
@@ -216,9 +233,10 @@ class BusinessSearchView(APIView):
 
 
     def get(self, request, *args, **kwargs):
-        qs = Business.objects.all().select_related("country", "city", "category")
+        qs = public_businesses().select_related("country", "city", "category")
 
         q = (request.query_params.get("q") or "").strip()
+        location = (request.query_params.get("location") or "").strip()
         country = (request.query_params.get("country") or "").strip()
         city = (request.query_params.get("city") or "").strip()
         town = (request.query_params.get("town") or "").strip()
@@ -241,14 +259,100 @@ class BusinessSearchView(APIView):
         if offset < 0:
             offset = 0
 
-        # Free-text search (simple OR across key fields)
-        if q:
-            qs = qs.filter(
-                Q(name__icontains=q)
-                | Q(description__icontains=q)
-                | Q(address__icontains=q)
-                | Q(website__icontains=q)
+        # Support a natural phrase such as "restaurants in Antwerp" when the
+        # dedicated location field is empty, but only extract a real known
+        # city/country so ordinary uses of the word "in" are untouched.
+        detected_location = ""
+        if not location:
+            phrase_match = re.match(r"^(.*?)\s+in\s+([^,]+)$", q, flags=re.IGNORECASE)
+            if phrase_match:
+                candidate = phrase_match.group(2).strip()
+                if (
+                    City.objects.filter(Q(name__iexact=candidate) | Q(slug__iexact=candidate)).exists()
+                    or Country.objects.filter(
+                        Q(name__iexact=candidate)
+                        | Q(slug__iexact=candidate)
+                        | Q(code__iexact=candidate)
+                    ).exists()
+                ):
+                    q = phrase_match.group(1).strip()
+                    location = candidate
+                    detected_location = candidate
+
+        # Location is deliberately applied independently from keyword terms.
+        # This lets one keyword match a category while another matches content.
+        if location:
+            for term in _search_terms(location):
+                qs = qs.filter(
+                    Q(city__name__icontains=term)
+                    | Q(city__slug__icontains=term)
+                    | Q(country__name__icontains=term)
+                    | Q(country__slug__icontains=term)
+                    | Q(country__code__icontains=term)
+                    | Q(town__name__icontains=term)
+                    | Q(town__slug__icontains=term)
+                )
+
+        def term_query(term):
+            return (
+                Q(name__icontains=term)
+                | Q(description__icontains=term)
+                | Q(address__icontains=term)
+                | Q(website__icontains=term)
+                | Q(category__name__icontains=term)
+                | Q(keywords__icontains=term)
+                | Q(premium_sidebar__icontains=term)
             )
+
+        def strong_term_query(term):
+            return Q(name__icontains=term) | Q(category__name__icontains=term)
+
+        query_terms = _search_terms(q)
+        fallback_used = False
+        fallback_term = ""
+        ranking_terms = query_terms
+        if query_terms:
+            exact_qs = qs
+            for term in query_terms:
+                exact_qs = exact_qs.filter(term_query(term))
+
+            if exact_qs.exists():
+                qs = exact_qs
+            elif len(query_terms) > 1:
+                # If the full intersection is empty, prefer the strongest
+                # business-type/category term for a transparent related result.
+                candidates = []
+                for index, term in enumerate(query_terms):
+                    candidate_qs = qs.filter(term_query(term))
+                    candidate_count = candidate_qs.count()
+                    strong_count = qs.filter(strong_term_query(term)).count()
+                    if candidate_count and strong_count:
+                        candidates.append((strong_count, candidate_count, -index, term, candidate_qs))
+                if candidates:
+                    _, _, _, fallback_term, qs = max(candidates, key=lambda item: item[:3])
+                    fallback_used = True
+                    ranking_terms = [fallback_term]
+                else:
+                    qs = exact_qs
+            else:
+                qs = exact_qs
+
+        # Lightweight relevance: name, then category, then keywords/services,
+        # then descriptive content. The fallback uses the same ordering.
+        if ranking_terms:
+            score = Value(0, output_field=IntegerField())
+            for term in ranking_terms:
+                score = score + Case(
+                    When(name__iexact=term, then=Value(100)),
+                    When(name__icontains=term, then=Value(80)),
+                    When(category__name__icontains=term, then=Value(60)),
+                    When(keywords__icontains=term, then=Value(45)),
+                    When(premium_sidebar__icontains=term, then=Value(40)),
+                    When(description__icontains=term, then=Value(20)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+            qs = qs.annotate(search_score=score)
 
         country_obj = None
 
@@ -280,10 +384,13 @@ class BusinessSearchView(APIView):
 
         # Category filter (slug or name)
         if category:
-            qs = qs.filter(
-                Q(category__slug__iexact=category)
-                | Q(category__name__iexact=category)
-            )
+            category_obj = Category.objects.filter(
+                Q(slug__iexact=category) | Q(name__iexact=category)
+            ).first()
+            if category_obj is None or not category_obj.is_public:
+                qs = qs.none()
+            else:
+                qs = qs.filter(category=category_obj)
 
         if tier_filter in {"free", "claimed", "premium"}:
             qs = qs.filter(tier=tier_filter)
@@ -301,7 +408,8 @@ class BusinessSearchView(APIView):
             default=3,
             output_field=IntegerField(),
         )
-        qs = qs.order_by(tier_priority, "created_at", "name")[offset : offset + limit]
+        ordering = (["-search_score"] if ranking_terms else []) + [tier_priority, "created_at", "name"]
+        qs = qs.order_by(*ordering)[offset : offset + limit]
 
         serializer = BusinessSerializer(qs, many=True)
         data = {
@@ -309,7 +417,18 @@ class BusinessSearchView(APIView):
             "limit": limit,
             "offset": offset,
             "results": serializer.data,
+            "fallback": fallback_used,
+            "fallback_term": fallback_term,
+            "detected_location": detected_location,
+            "normalized_query": q,
         }
+        if country and category:
+            data["country_category_indexable"] = is_country_category_indexable(total)
+        if fallback_used:
+            data["fallback_message"] = (
+                f"No exact matches found. Showing related results for {fallback_term}"
+                + (f" in {location}." if location else ".")
+            )
         return Response(data, status=status.HTTP_200_OK)
 
 
@@ -319,14 +438,14 @@ class DebugListingsSampleView(APIView):
     permission_classes = [IsAdminUser]
     
     def get(self, request):
-        listings = Business.objects.select_related('country', 'city', 'category')[:20]
+        listings = public_businesses().select_related('country', 'city', 'category')[:20]
         serializer = BusinessSerializer(listings, many=True)
         
         return Response({
             'count': listings.count(),
             'sample_data': serializer.data,
             'debug_info': {
-                'total_listings': Business.objects.count(),
+                'total_listings': public_businesses().count(),
                 'total_countries': Country.objects.count(), 
                 'total_cities': City.objects.count(),
                 'total_categories': Category.objects.count()
@@ -341,9 +460,9 @@ class FilteredCountryListView(APIView):
         from django.db.models import Count
         
         countries = Country.objects.filter(
-            businesses__isnull=False
+            businesses__is_published=True
         ).annotate(
-            business_count=Count('businesses')
+            business_count=Count('businesses', filter=Q(businesses__is_published=True), distinct=True)
         ).distinct().order_by('name')
         
         # Create response with business counts
@@ -365,7 +484,7 @@ class FilteredCityListView(APIView):
     def get(self, request):
         country_param = request.GET.get('country', '').strip()
         
-        qs = City.objects.filter(businesses__isnull=False).select_related('country')
+        qs = City.objects.filter(businesses__is_published=True).select_related('country')
         
         if country_param:
             qs = qs.filter(
@@ -393,7 +512,7 @@ class FilteredTownListView(APIView):
             )
         
         # Get distinct towns from businesses
-        qs = Business.objects.filter(
+        qs = public_businesses().filter(
             town__isnull=False,
             town__gt=''
         ).select_related('country', 'city')
@@ -431,10 +550,10 @@ class FilteredCategoryListView(APIView):
         
         if global_top:
             # Return top 5 global categories but show business count for specific country
-            top_categories = Category.objects.filter(
-                business__isnull=False
+            top_categories = public_categories().filter(
+                business__is_published=True
             ).annotate(
-                global_business_count=Count('business', distinct=True)
+                global_business_count=Count('business', filter=Q(business__is_published=True), distinct=True)
             ).distinct().order_by('-global_business_count', 'name')[:5]
             
             # Get the category IDs in the order they should be returned
@@ -443,19 +562,19 @@ class FilteredCategoryListView(APIView):
             # Now get business counts for these categories in the specific country
             if country_param:
                 categories_dict = {}
-                for cat in Category.objects.filter(id__in=category_ids).annotate(
+                for cat in public_categories().filter(id__in=category_ids).annotate(
                     business_count=Count(
                         'business',
-                        filter=Q(business__country__name__iexact=country_param) |
-                               Q(business__country__slug__iexact=country_param),
+                        filter=(Q(business__is_published=True) & (Q(business__country__name__iexact=country_param) |
+                               Q(business__country__slug__iexact=country_param))),
                         distinct=True
                     )
                 ):
                     categories_dict[cat.id] = cat
             else:
                 categories_dict = {}
-                for cat in Category.objects.filter(id__in=category_ids).annotate(
-                    business_count=Count('business', distinct=True)
+                for cat in public_categories().filter(id__in=category_ids).annotate(
+                    business_count=Count('business', filter=Q(business__is_published=True), distinct=True)
                 ):
                     categories_dict[cat.id] = cat
                 
@@ -467,17 +586,17 @@ class FilteredCategoryListView(APIView):
                 
         else:
             # Original behavior - filter categories by country
-            qs = Category.objects.filter(business__isnull=False)
+            qs = public_categories().filter(business__is_published=True)
             
             if country_param:
                 # Filter categories by country using various country identifiers
                 qs = qs.filter(
-                    Q(business__country__name__iexact=country_param) |
-                    Q(business__country__slug__iexact=country_param)
+                    Q(business__is_published=True) & (Q(business__country__name__iexact=country_param) |
+                    Q(business__country__slug__iexact=country_param))
                 )
             
             categories_list = qs.annotate(
-                business_count=Count('business', distinct=True)
+                business_count=Count('business', filter=Q(business__is_published=True), distinct=True)
             ).distinct().order_by('-business_count', 'name')  # Order by business count desc, then name
         
         serializer = CategorySerializer(categories_list, many=True)
@@ -495,9 +614,9 @@ class TopCitiesView(APIView):
         
         # Get top countries by business count
         top_countries = Country.objects.filter(
-            businesses__isnull=False
+            businesses__is_published=True
         ).annotate(
-            business_count=Count('businesses', distinct=True)
+            business_count=Count('businesses', filter=Q(businesses__is_published=True), distinct=True)
         ).order_by('-business_count')[:max_countries]
         
         result = []
@@ -506,9 +625,9 @@ class TopCitiesView(APIView):
             # Get top cities for this country
             top_cities = City.objects.filter(
                 country=country,
-                businesses__isnull=False
+                businesses__is_published=True
             ).annotate(
-                business_count=Count('businesses', distinct=True)
+                business_count=Count('businesses', filter=Q(businesses__is_published=True), distinct=True)
             ).order_by('-business_count')[:limit_per_country]
             
             if top_cities.exists():
@@ -544,7 +663,7 @@ class TopCountriesWithCategoriesView(APIView):
         
         # Get countries that have businesses
         countries_with_businesses = Country.objects.annotate(
-            business_count=Count('businesses')
+            business_count=Count('businesses', filter=Q(businesses__is_published=True), distinct=True)
         ).filter(business_count__gt=0).order_by('-business_count')
         
         max_countries = int(request.GET.get('max_countries', 50))
@@ -555,10 +674,10 @@ class TopCountriesWithCategoriesView(APIView):
         for country in countries_with_businesses:
             # Get top 4 categories for this country
             top_categories = (
-                Business.objects
-                .filter(country=country, category__isnull=False)
+                public_businesses()
+                .filter(country=country, category__isnull=False, category__is_public=True)
                 .values('category__name', 'category__slug')
-                .annotate(business_count=Count('id'))
+                .annotate(business_count=Count('id', filter=Q(is_published=True)))
                 .order_by('-business_count')[:4]
             )
             
@@ -612,7 +731,7 @@ class FeaturedBusinessListView(APIView):
         except ValueError:
             limit = 10
             
-        qs = Business.objects.select_related('country', 'city', 'town', 'category')
+        qs = public_businesses().select_related('country', 'city', 'town', 'category')
         
         if scope == 'eu':
             # EU-wide: premium listings with EU-wide visibility only

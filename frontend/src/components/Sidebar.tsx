@@ -7,6 +7,7 @@ import { useTranslations } from "@/i18n/translations";
 import AdPlaceholder from "./ads/AdPlaceholder";
 import { GENERATED_WEBSITE_PRODUCT } from '@/lib/product-config';
 import { resolveSidebarContent, type SidebarContext } from '@/lib/sidebar-content';
+import { publicActionHref } from '@/lib/public-actions';
 
 export default function Sidebar({
   content,
@@ -29,7 +30,7 @@ export default function Sidebar({
             Add your business to ListAcrossEU and create a free public listing.
           </p>
           <Link
-            href={`/${lang}/list-your-business-free`}
+            href={publicActionHref(lang, 'LIST_BUSINESS')}
             className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-blue-700 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-blue-800"
           >
             List Your Business Free
@@ -43,7 +44,7 @@ export default function Sidebar({
           </p>
           <p className="mt-3 text-xs font-semibold text-slate-500">{GENERATED_WEBSITE_PRODUCT.price} after the trial</p>
           <Link
-            href={`/${lang}/pricing`}
+            href={publicActionHref(lang, 'TRY_GENERATED_WEBSITE')}
             className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             {GENERATED_WEBSITE_PRODUCT.cta}

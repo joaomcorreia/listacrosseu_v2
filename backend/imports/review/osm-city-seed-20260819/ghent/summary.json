@@ -1,0 +1,35 @@
+{
+  "city": "ghent",
+  "raw_candidates": 16,
+  "after_chain_non_business_filter": 16,
+  "existing_duplicates": 0,
+  "incoming_duplicates": 0,
+  "ambiguous_duplicates": 0,
+  "clean_import_candidates": 1,
+  "category_review": 15,
+  "rejection_reasons": {},
+  "category_distribution": {
+    "REVIEW_REQUIRED": 15,
+    "bars-pubs": 1
+  },
+  "website_status": {
+    "NO_WEBSITE": 16
+  },
+  "unknown_category_concepts": {
+    "amenity=fuel": 1,
+    "amenity=place_of_worship": 3,
+    "amenity=post_office": 1,
+    "amenity=townhall": 2,
+    "leisure=dance": 1,
+    "leisure=park": 4,
+    "leisure=slipway": 1,
+    "shop=convenience": 1,
+    "tourism=camp_site": 1
+  },
+  "timing_seconds": {
+    "candidate_parsing": 2.009,
+    "normalization": 0.001,
+    "deduplication": 0.467,
+    "artifact_generation": 0.005
+  }
+}

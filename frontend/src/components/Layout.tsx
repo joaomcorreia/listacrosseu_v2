@@ -7,6 +7,7 @@ import { normalizeLang } from "@/lib/lang";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import { useTranslations } from "@/i18n/translations";
+import { publicActionHref } from "@/lib/public-actions";
 import { debugLog, debugWarn } from "@/lib/debug";
 import { resolveBlogDetailTargetUrl } from "@/lib/blogRouting";
 import LanguageSelector from "@/components/LanguageSelector";
@@ -17,6 +18,7 @@ type LayoutProps = {
   headerExtra?: ReactNode;
   headerVariant?: "overlay" | "solid";
   withTopHeader?: boolean;
+  showBlogSlider?: boolean;
 };
 
 export default function Layout({
@@ -24,6 +26,7 @@ export default function Layout({
   headerExtra,
   headerVariant: _headerVariant = "solid",
   withTopHeader = false,
+  showBlogSlider: showBlogSliderProp = true,
 }: LayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -35,6 +38,16 @@ export default function Layout({
   const currentLang = normalizeLang(String(params?.lang || "en"));
   const t = useTranslations(currentLang);
   const toggleMenuLabel = t.actions.toggleMenu;
+  const homePath = `/${currentLang}`;
+  const searchPath = `/${currentLang}/search`;
+  const isHomeActive = pathname === homePath || pathname === `${homePath}/`;
+  const isSearchActive = pathname === searchPath || pathname === `${searchPath}/`;
+  const navLinkClass = (active: boolean) => [
+    "px-2 py-1 rounded-md transition-colors",
+    active
+      ? "bg-blue-50 text-blue-700"
+      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+  ].join(" ");
 
   async function changeLang(newLang: string) {
     const newSegments = [...segments];
@@ -98,7 +111,7 @@ export default function Layout({
     { name: t.nav.browseCategories.beauty, slug: "beauty" },
   ];
 
-  const showBlogSlider = ![
+  const showBlogSlider = showBlogSliderProp && ![
     "/admin", "/dashboard", "/account", "/login", "/signup", "/verify",
     "/checkout", "/payment", "/editor",
   ].some((route) => pathname.includes(route));
@@ -122,9 +135,11 @@ export default function Layout({
             {/* left: logo */}
             <div className="flex items-center justify-start">
               <Link href={`/${currentLang}`} className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                  {t.nav.brandShort}
-                </span>
+                <img
+                  src="/images/listacrosseu-logo.png"
+                  alt="ListAcrossEU logo"
+                  className="h-8 w-8 object-contain"
+                />
                 <span className="text-sm font-semibold tracking-tight">
                   {t.nav.brandName}
                 </span>
@@ -134,6 +149,12 @@ export default function Layout({
             {/* center: nav */}
             <div className="hidden items-center justify-center gap-6 md:flex">
               <nav className="flex items-center gap-3 text-sm">
+                <Link href={homePath} className={navLinkClass(isHomeActive)}>
+                  {t.nav.home}
+                </Link>
+                <Link href={searchPath} className={navLinkClass(isSearchActive)}>
+                  {t.nav.search}
+                </Link>
                 <div className="relative group">
                   <button
                     className={[
@@ -217,7 +238,7 @@ export default function Layout({
                 </div>
 
                 <Link
-                  href={`/${currentLang}/list-your-business-free`}
+                  href={publicActionHref(currentLang, 'LIST_BUSINESS')}
                   className={[
                     "px-2 py-1 rounded-md transition-colors",
                     pathname === `/${currentLang}/pricing`
@@ -225,7 +246,7 @@ export default function Layout({
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                   ].join(" ")}
                 >
-                  {t.nav.listYourBusiness === "List Your Business" ? "List Your Business Free" : t.nav.listYourBusiness}
+                  <span className="inline-flex items-center gap-2"><span>{t.nav.listYourBusiness === "List Your Business" ? "List Your Business" : t.nav.listYourBusiness}</span><span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">Free</span></span>
                 </Link>
 
                 <Link
@@ -254,6 +275,9 @@ export default function Layout({
                   }
                 />
               </div>
+              <Link href={`/${currentLang}/login`} className="hidden rounded-md border border-blue-700 px-3 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-50 md:inline-flex">
+                Login
+              </Link>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className={[
@@ -295,6 +319,20 @@ export default function Layout({
           >
             <div className="px-4 py-2 space-y-1">
               <Link
+                href={homePath}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block ${navLinkClass(isHomeActive)} text-base font-medium`}
+              >
+                {t.nav.home}
+              </Link>
+              <Link
+                href={searchPath}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block ${navLinkClass(isSearchActive)} text-base font-medium`}
+              >
+                {t.nav.search}
+              </Link>
+              <Link
                 href={`/${currentLang}/countries`}
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
@@ -302,14 +340,15 @@ export default function Layout({
                 {t.nav.browse}
               </Link>
               <Link
-                href={`/${currentLang}/list-your-business-free`}
+                href={publicActionHref(currentLang, 'LIST_BUSINESS')}
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
               >
-                {t.nav.listYourBusiness === "List Your Business" ? "List Your Business Free" : t.nav.listYourBusiness}
+                <span className="inline-flex items-center gap-2"><span>{t.nav.listYourBusiness === "List Your Business" ? "List Your Business" : t.nav.listYourBusiness}</span><span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">Free</span></span>
               </Link>
               <Link href={`/${currentLang}/generated-business-website`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50">{t.nav.generatedWebsite || "Generated Website"} <span className="ml-2 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{t.nav.tryFree || "Try Free"}</span></Link>
               <Link href={`/${currentLang}/blog`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50">{t.nav.blog}</Link>
+              <Link href={`/${currentLang}/login`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-blue-800 hover:bg-blue-50">Login</Link>
             </div>
           </div>
         </div>

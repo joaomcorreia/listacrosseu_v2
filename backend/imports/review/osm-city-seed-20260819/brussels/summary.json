@@ -1,0 +1,45 @@
+{
+  "city": "brussels",
+  "raw_candidates": 26,
+  "after_chain_non_business_filter": 22,
+  "existing_duplicates": 0,
+  "incoming_duplicates": 0,
+  "ambiguous_duplicates": 0,
+  "clean_import_candidates": 6,
+  "category_review": 16,
+  "rejection_reasons": {
+    "education_facility": 2,
+    "obvious_non_business_amenity": 2
+  },
+  "category_distribution": {
+    "REVIEW_REQUIRED": 16,
+    "bars-pubs": 2,
+    "gym": 1,
+    "restaurant": 2,
+    "supermarkets": 1
+  },
+  "website_status": {
+    "NO_WEBSITE": 21,
+    "WEBSITE_PRESENT": 1
+  },
+  "unknown_category_concepts": {
+    "amenity=drinking_water": 1,
+    "amenity=fire_station": 1,
+    "amenity=library": 1,
+    "amenity=place_of_worship": 3,
+    "amenity=post_office": 1,
+    "amenity=social_centre": 1,
+    "amenity=townhall": 1,
+    "leisure=pitch": 2,
+    "office=religion": 2,
+    "shop=country_store": 1,
+    "shop=gift": 1,
+    "shop=hardware": 1
+  },
+  "timing_seconds": {
+    "candidate_parsing": 4.204,
+    "normalization": 0.001,
+    "deduplication": 0.571,
+    "artifact_generation": 0.005
+  }
+}

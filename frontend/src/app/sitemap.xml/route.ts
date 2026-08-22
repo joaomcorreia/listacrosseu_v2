@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { INTERNAL_BACKEND_URL } from "@/lib/env.server";
 import { PUBLIC_SITE_URL } from "@/lib/env.public";
 
-function normalizeSitemapHosts(xml: string): string {
+export function normalizeSitemapHosts(xml: string): string {
   return xml.replace(/(<loc>)(https?:\/\/[^<]+)(<\/loc>)/g, (_match, open, value, close) => {
     try {
       const parsed = new URL(value);
