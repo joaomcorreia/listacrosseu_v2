@@ -18,8 +18,21 @@ mkdir -p "$BACKUPS"
 cp -p "$DB" "$BACKUPS/db.sqlite3.$stamp"
 
 cd "$APP"
-git fetch --tags --prune
-git checkout --detach "$RELEASE_REF"
+if [[ -f "$RELEASE_REF" ]]; then
+  release_dir=$(mktemp -d /tmp/listacrosseu-release.XXXXXX)
+  tar -xzf "$RELEASE_REF" -C "$release_dir"
+  rsync -a --delete \
+    --exclude 'backend/.env' --exclude 'backend/.env.*' \
+    --exclude 'frontend/.env.local' --exclude 'frontend/.env.*' \
+    --exclude 'backend/media/' --exclude 'backend/staticfiles/' \
+    "$release_dir/" "$APP/"
+  RELEASE_ID=$(cat "$release_dir/RELEASE_HASH" 2>/dev/null || echo package)
+  rm -rf "$release_dir"
+else
+  git fetch --tags --prune
+  git checkout --detach "$RELEASE_REF"
+  RELEASE_ID=$(git rev-parse HEAD)
+fi
 
 python3 -m venv --clear /tmp/listacrosseu-release-venv
 /tmp/listacrosseu-release-venv/bin/pip install -r backend/requirements.txt
@@ -43,4 +56,4 @@ systemctl restart "$BACKEND_SERVICE"
 systemctl restart "$FRONTEND_SERVICE"
 curl --fail --silent --show-error http://127.0.0.1:8004/healthz/ >/dev/null
 curl --fail --silent --show-error http://127.0.0.1:3004/ >/dev/null
-echo "Release $RELEASE_REF is healthy; database backup: $BACKUPS/db.sqlite3.$stamp"
+echo "Release $RELEASE_ID is healthy; database backup: $BACKUPS/db.sqlite3.$stamp"
