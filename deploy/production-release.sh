@@ -12,6 +12,12 @@ DO_IMPORT=false
 # Keep production migrations/checks/import guards pointed at the shared live
 # database; never fall back to a release-local SQLite file.
 export DATABASE_URL="sqlite:////var/www/listacross.eu/shared/db/db.sqlite3"
+# The systemd units receive these files via EnvironmentFile. Release checks
+# must use the same configuration without copying or exposing the secrets.
+set -a
+source /etc/listacross.eu/backend.env
+source /etc/listacross.eu/frontend.env
+set +a
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$BACKUPS"
