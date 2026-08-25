@@ -28,9 +28,5 @@ export default function GeneratedWebsiteRenderer(props: { initial: GeneratedWebs
   const initial = normalizeGeneratedWebsite(props.initial);
   const templateId = resolveGeneratedTemplateId(initial.template_id);
 
-  switch (templateId) {
-    case 'editorial-v1':
-    default:
-      return <GeneratedWebsiteRenderBoundary><GeneratedWebsiteTemplate {...props} initial={initial} /></GeneratedWebsiteRenderBoundary>;
-  }
+  return <GeneratedWebsiteRenderBoundary><GeneratedWebsiteTemplate {...props} initial={{ ...initial, template_id: templateId }} /></GeneratedWebsiteRenderBoundary>;
 }

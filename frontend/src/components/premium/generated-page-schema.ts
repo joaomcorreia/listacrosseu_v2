@@ -1,7 +1,7 @@
 import { SUPPORTED_LANGS, normalizeLang, type SupportedLang } from '@/lib/lang';
 export type { SupportedLang } from '@/lib/lang';
 
-export type GeneratedTemplateId = 'editorial-v1';
+export type GeneratedTemplateId = 'editorial-v1' | 'classic-business' | 'service-pro';
 
 export const DEFAULT_GENERATED_TEMPLATE_ID: GeneratedTemplateId = 'editorial-v1';
 

@@ -1028,6 +1028,8 @@ class DashboardWebsiteView(APIView):
         business = _verified_business(request, business_id)
         exists = bool((business.premium_sidebar or {}).get("_website"))
         draft = _website_draft(business)
+        if request.data.get("template_id") in {"editorial-v1", "classic-business", "service-pro"}:
+            draft["template_id"] = request.data["template_id"]
         for key in ("page_title", "target_location", "target_city", "target_region", "target_country", "service_area"):
             if key in request.data:
                 value = str(request.data.get(key) or "").strip()
@@ -1052,6 +1054,8 @@ class DashboardWebsiteView(APIView):
     def patch(self, request, business_id):
         business = _verified_business(request, business_id)
         draft = _website_draft(business)
+        if request.data.get("template_id") in {"editorial-v1", "classic-business", "service-pro"}:
+            draft["template_id"] = request.data["template_id"]
         for key in ("page_title", "target_location", "target_city", "target_region", "target_country", "service_area"):
             if key in request.data:
                 value = str(request.data.get(key) or "").strip()

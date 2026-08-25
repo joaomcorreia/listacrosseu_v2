@@ -248,6 +248,16 @@ class DashboardOwnershipTests(TestCase):
         ends = datetime.fromisoformat(response.data["website"]["trial"]["ends_at"])
         self.assertEqual((ends - started).days, 30)
 
+    def test_website_template_selection_preserves_existing_draft_content(self):
+        self.client.force_authenticate(self.owner)
+        created = self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/")
+        self.assertEqual(created.status_code, 201)
+        before = created.data["website"]["sections"]["hero"]["title"]
+        response = self.client.patch(f"/api/dashboard/businesses/{self.business.id}/website/", {"template_id": "service-pro"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["website"]["template_id"], "service-pro")
+        self.assertEqual(response.data["website"]["sections"]["hero"]["title"], before)
+
     def test_generated_website_omits_empty_content_sections(self):
         self.client.force_authenticate(self.owner)
         self.business.description = ""

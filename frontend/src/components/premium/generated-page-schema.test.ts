@@ -1,5 +1,6 @@
 // @ts-expect-error Node's native TypeScript runner requires the source extension.
 import { getLocalizedWebsiteView, normalizeGeneratedWebsite, type GeneratedWebsite } from './generated-page-schema.ts';
+import { resolveGeneratedTemplateId } from './generated-page-registry';
 
 const productionShapedSoldierWebsite: GeneratedWebsite = {
   business_id: 11875,
@@ -51,3 +52,6 @@ if (frenchView.website.sections.hero.title !== 'Titre français') throw new Erro
 if (frenchView.website.sections.hero.tagline !== '') throw new Error('Missing secondary content was copied from primary language');
 if (frenchView.website.contact.phone !== '') throw new Error('Shared contact data should remain available independently of localized text');
 if (frenchView.config.additional.length !== 3) throw new Error('Four-language configuration was not retained');
+if (resolveGeneratedTemplateId('editorial-v1') !== 'editorial-v1') throw new Error('Legacy Classic Business template ID was not preserved');
+if (resolveGeneratedTemplateId('classic-business') !== 'classic-business') throw new Error('Classic Business template ID was not registered');
+if (resolveGeneratedTemplateId('service-pro') !== 'service-pro') throw new Error('Service Pro template ID was not registered');
