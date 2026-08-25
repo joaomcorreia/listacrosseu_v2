@@ -27,7 +27,7 @@ cd "$APP"
 if [[ -f "$RELEASE_REF" ]]; then
   release_dir=$(mktemp -d /tmp/listacrosseu-release.XXXXXX)
   tar -xzf "$RELEASE_REF" -C "$release_dir"
-  rsync -a --delete \
+  rsync -a --no-perms --no-owner --no-group --delete \
     --exclude 'backend/.env' --exclude 'backend/.env.*' \
     --exclude 'frontend/.env.local' --exclude 'frontend/.env.*' \
     --exclude 'backend/media/' --exclude 'backend/staticfiles/' \
