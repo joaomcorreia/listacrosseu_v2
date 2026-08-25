@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { MapPin, Phone, Globe, Mail, Tag } from "lucide-react";
+import { BriefcaseBusiness, MapPin, Phone, Globe, Mail, Tag } from "lucide-react";
 import { useModal } from "../hooks/useModal";
 import ClaimBusinessModal from "./ClaimBusinessModal";
 import ViewBusinessDetailsModal from "./modals/ViewBusinessDetailsModal";
@@ -109,9 +109,28 @@ function getClaimedAccent(business: Business) {
   return business.tier === 'claimed' && /^#[0-9A-F]{6}$/i.test(business.accent_color || '') ? business.accent_color : '#2563EB';
 }
 
+const CARD_ACCENTS = [
+  'bg-violet-100 text-violet-700',
+  'bg-blue-100 text-blue-700',
+  'bg-teal-100 text-teal-700',
+  'bg-emerald-100 text-emerald-700',
+] as const;
+
+function getCardAccent(business: Business) {
+  return CARD_ACCENTS[Math.abs(business.id) % CARD_ACCENTS.length];
+}
+
+function BusinessCardIcon({ business, imageUrl }: { business: Business; imageUrl?: string }) {
+  return (
+    <div className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg ${getCardAccent(business)}`} aria-hidden={!imageUrl}>
+      {imageUrl ? <img src={imageUrl} alt={`${business.name} logo`} className="h-full w-full object-contain p-1.5" /> : <BriefcaseBusiness className="h-6 w-6" />}
+    </div>
+  );
+}
+
 function CategoryBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+    <span className="inline-flex w-fit max-w-full items-center whitespace-normal break-words rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium leading-4 text-blue-700">
       <Tag className="mr-1 h-3.5 w-3.5" />
       {label}
     </span>
@@ -129,7 +148,6 @@ export default function BusinessCard({ business, onClaim, lang }: BusinessCardPr
   const effectiveLang = normalizeLang(String(lang || params?.lang || "en"));
   const t = useTranslations(effectiveLang);
   const tier = business.plan_type ?? business.tier ?? "free";
-  const categoryLabel = getCategoryLabel(business);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
@@ -193,7 +211,7 @@ export default function BusinessCard({ business, onClaim, lang }: BusinessCardPr
     }
   };
 
-  const wrapperClassName = ["relative", tier === "premium" ? "col-span-2" : ""]
+  const wrapperClassName = ["relative flex h-full flex-col", tier === "premium" ? "col-span-2" : ""]
     .filter(Boolean)
     .join(" ");
 
@@ -226,11 +244,13 @@ function FreeBusinessCard({
   const categoryLabel = getCategoryLabel(business) || t.businessCard.uncategorized;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:-translate-y-0.5 hover:shadow-md">
-      <div className="space-y-3 p-5">
+    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex h-full items-start gap-3 p-4 sm:p-5">
+        <BusinessCardIcon business={business} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
         <Link
           href={getBusinessCanonicalPath(business, lang)}
-          className="block text-lg font-bold text-gray-900 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="line-clamp-2 min-h-[3.5rem] text-lg font-bold leading-7 text-gray-900 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           {business.name}
         </Link>
@@ -239,15 +259,16 @@ function FreeBusinessCard({
 
         <div className="flex items-center text-sm text-gray-600">
           <MapPin className="mr-1 h-4 w-4" />
-          <span>{getLocationString(business)}</span>
+          <span className="truncate">{getLocationString(business)}</span>
         </div>
 
         <button
           onClick={onClaim}
-          className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          className="mt-auto pt-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
           Claim for free
         </button>
+        </div>
       </div>
     </div>
   );
@@ -265,11 +286,12 @@ function ClaimedBusinessCard({
   const accent = getClaimedAccent(business);
 
   return (
-    <div className="rounded-lg border-2 bg-white shadow-sm transition-shadow hover:shadow-md" style={{ borderColor: accent }}>
-      <div className="space-y-3 p-4">
-        {business.logo_url && <div className="flex h-16 w-full items-center justify-center rounded-md bg-slate-50 p-2"><img src={business.logo_url} alt={`${business.name} logo`} className="h-full max-w-full object-contain" /></div>}
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-lg font-bold text-gray-900">{business.name}</h3>
+    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex h-full items-start gap-3 p-4">
+        <BusinessCardIcon business={business} imageUrl={business.logo_url} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex min-h-[3.5rem] items-start justify-between gap-2">
+          <h3 className="line-clamp-2 min-w-0 flex-1 text-lg font-bold leading-7 text-gray-900">{business.name}</h3>
           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" style={{ color: accent, backgroundColor: `${accent}14` }}>
             {t.badges.verified}
           </span>
@@ -279,7 +301,7 @@ function ClaimedBusinessCard({
 
         <div className="flex items-center text-sm text-gray-600">
           <MapPin className="mr-1 h-4 w-4" />
-          <span>{getLocationString(business)}</span>
+          <span className="truncate">{getLocationString(business)}</span>
         </div>
 
         {business.phone && (
@@ -313,17 +335,18 @@ function ClaimedBusinessCard({
         ) : null}
 
         {business.description && (
-          <p className="text-sm text-gray-600">
+          <p className="line-clamp-2 text-sm text-gray-600">
             {truncateText(business.description, 100)}
           </p>
         )}
 
         <button
           onClick={onViewDetails}
-          className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          className="mt-auto w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         >
           {t.buttons.viewDetails}
         </button>
+        </div>
       </div>
     </div>
   );
@@ -341,10 +364,12 @@ function PremiumBusinessCard({
     : "";
 
   return (
-    <div className="rounded-lg border border-orange-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-xl font-bold text-gray-900">{business.name}</h3>
+    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex h-full items-start gap-3 p-4">
+        <BusinessCardIcon business={business} imageUrl={imageUrl} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex min-h-[3.5rem] items-start justify-between gap-3">
+          <h3 className="line-clamp-2 min-w-0 flex-1 text-lg font-bold leading-7 text-gray-900">{business.name}</h3>
           <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700">
             {`★ ${t.badges.premium}`}
           </span>
@@ -352,21 +377,7 @@ function PremiumBusinessCard({
 
         <CategoryBadge label={categoryLabel} />
 
-        <div className="flex items-center gap-3">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-            {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={business.name}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-                {t.businessCard.noImage}
-              </div>
-            )}
-          </div>
-          <div className="space-y-1 text-sm text-gray-600">
+        <div className="space-y-1 text-sm text-gray-600">
             <div className="flex items-center">
               <MapPin className="mr-1 h-4 w-4" />
               <span>{getLocationString(business)}</span>
@@ -374,7 +385,6 @@ function PremiumBusinessCard({
             {getAddressLine(business) && (
               <div className="text-xs text-gray-500">{getAddressLine(business)}</div>
             )}
-          </div>
         </div>
 
         {business.phone && (
@@ -410,17 +420,18 @@ function PremiumBusinessCard({
         )}
 
         {business.description && (
-          <p className="text-sm text-gray-600 line-clamp-3">
+          <p className="line-clamp-2 text-sm text-gray-600">
             {business.description}
           </p>
         )}
 
         <button
           onClick={onViewDetails}
-          className="w-full rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
+          className="mt-auto w-full rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
         >
           {t.buttons.viewDetails}
         </button>
+        </div>
       </div>
     </div>
   );

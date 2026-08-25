@@ -1,5 +1,5 @@
 // @ts-expect-error Node's native TypeScript runner requires the source extension.
-import { normalizeGeneratedWebsite, type GeneratedWebsite } from './generated-page-schema.ts';
+import { getLocalizedWebsiteView, normalizeGeneratedWebsite, type GeneratedWebsite } from './generated-page-schema.ts';
 
 const productionShapedSoldierWebsite: GeneratedWebsite = {
   business_id: 11875,
@@ -36,3 +36,18 @@ const normalized = normalizeGeneratedWebsite(productionShapedSoldierWebsite);
 if (normalized.business_name !== 'Auto Repairs Soldier') throw new Error('Published business identity was not preserved');
 if (normalized.website.sections.services.items.length !== 3) throw new Error('Private placeholder service objects were not preserved for renderer input');
 if (!normalized.website.sections.services.items.every((item) => typeof item !== 'string' && item.private_placeholder)) throw new Error('Service placeholder shape changed unexpectedly');
+
+const multilingual = normalizeGeneratedWebsite({
+  ...productionShapedSoldierWebsite,
+  website: {
+    ...productionShapedSoldierWebsite.website,
+    language_config: { primary: 'en', additional: ['fr', 'de', 'es'], max_count: 4 },
+    localized: { fr: { sections: { hero: { title: 'Titre français' }, faq: { items: [{ question: 'Question française', answer: 'Réponse française' }] } } } },
+  },
+});
+const frenchView = getLocalizedWebsiteView(multilingual.website, 'fr');
+if (frenchView.language !== 'fr') throw new Error('Selected generated website language was not preserved');
+if (frenchView.website.sections.hero.title !== 'Titre français') throw new Error('Secondary hero translation was not rendered');
+if (frenchView.website.sections.hero.tagline !== '') throw new Error('Missing secondary content was copied from primary language');
+if (frenchView.website.contact.phone !== '') throw new Error('Shared contact data should remain available independently of localized text');
+if (frenchView.config.additional.length !== 3) throw new Error('Four-language configuration was not retained');

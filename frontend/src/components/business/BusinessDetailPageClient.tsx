@@ -6,7 +6,6 @@ import BusinessDiscoverySections from './BusinessDiscoverySections';
 
 import { BusinessHeader } from './BusinessHeader';
 import { BusinessContent } from './BusinessContent';
-import { ListingAdsBlock } from './ListingAdsBlock';
 import { ContactSection } from './ContactSection';
 import { FreeBusinessDetailPage, type RelatedBusiness } from './FreeBusinessDetailPage';
 import ClaimedListingRenderer from './ClaimedListingRenderer';
@@ -35,7 +34,7 @@ export function BusinessDetailPageClient({ business, lang = 'en', relatedBusines
       <section className="w-full bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} aria-label="Published Claimed Listing">
         <div className="container mx-auto px-4 py-8"><ClaimedListingRenderer listing={business} /></div>
       </section>
-      <div className="container mx-auto px-4"><div className="mt-8"><ListingAdsBlock /></div>{discovery && <div className="mt-10"><BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country.name} countrySlug={business.country.slug} /></div>}</div>
+      <div className="container mx-auto px-4">{discovery && <div className="mt-10"><BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country.name} countrySlug={business.country.slug} /></div>}</div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         '@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name,
         ...(business.description && { description: business.description }),
@@ -76,12 +75,6 @@ export function BusinessDetailPageClient({ business, lang = 'en', relatedBusines
 
       <div className="container mx-auto px-4 py-8">
         <BusinessContent business={business as never} tierStyles={tierStyles} lang={lang} />
-
-        {business.tier === 'claimed' && (
-          <div className="mt-8">
-            <ListingAdsBlock />
-          </div>
-        )}
 
         {business.tier === 'premium' && (
           <div className="mt-12">

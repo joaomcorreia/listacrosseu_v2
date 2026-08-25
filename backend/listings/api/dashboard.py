@@ -26,6 +26,7 @@ from rest_framework.views import APIView
 from listings.models import AccountVerificationToken, Business, BusinessClaimRequest, Category, CategorySuggestion, City, Country
 from listings.claim_flow import claimed_listing_container, normalize_claimed_draft, public_claimed_presentation, save_claimed_draft
 from listings.category_suggestions import ensure_category_suggestion, resolve_pending_category_suggestions
+from listings.services.ai_suggestions import SUPPORTED_LANGUAGES, build_suggestion_context, generate_field_suggestion, normalize_language, suggestions_are_available
 
 from .serializers import BusinessSerializer, CitySerializer
 
@@ -142,6 +143,7 @@ def _website_content_from_draft(business, draft):
     return {
         "tagline": str(hero.get("tagline") or ""),
         "description": str(about.get("text") or ""),
+        "about_intro": str(about.get("intro") or ""),
         "logo": _website_logo_from_business(business),
         "hero_image": str(hero.get("image") or ""),
         "category": business.category.name if business.category_id else "",
@@ -151,6 +153,7 @@ def _website_content_from_draft(business, draft):
             for key in (*WEBSITE_CONTACT_FIELDS, "address", "city", "region", "country", "eyebrow", "title", "message", "location_label", "location_title", "location_intro")
         },
         "gallery": gallery.get("items") if isinstance(gallery.get("items"), list) else [],
+        "opening_hours": (sections.get("opening_hours", {}) or {}).get("items", []) if isinstance(sections.get("opening_hours"), dict) else [],
     }
 
 
@@ -236,6 +239,86 @@ def _browser_asset_url(value):
     return value
 
 
+def _website_opening_hours_from_business(business):
+    """Read existing structured hours, or conservatively parse legacy stored lines."""
+    sidebar = business.premium_sidebar if isinstance(business.premium_sidebar, dict) else {}
+    raw = sidebar.get("opening_hours")
+    if raw is None and isinstance(sidebar.get("_dashboard"), dict):
+        raw = sidebar["_dashboard"].get("opening_hours")
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict) and str(item.get("day") or "").strip()]
+    if isinstance(raw, dict):
+        return [{"day": str(day), "hours": str(value or "")} for day, value in raw.items() if str(day).strip()]
+    if not isinstance(raw, str):
+        return []
+    items = []
+    for line in raw.splitlines():
+        if ":" not in line:
+            continue
+        day, hours = line.split(":", 1)
+        if day.strip():
+            items.append({"day": day.strip(), "hours": hours.strip()})
+    return items
+
+
+def _website_language_config(draft):
+    raw = draft.get("language_config") if isinstance(draft.get("language_config"), dict) else {}
+    primary = normalize_language(raw.get("primary") or "en")
+    max_count = 4 if raw.get("max_count") == 4 else 1
+    additional = []
+    for value in raw.get("additional", []) if isinstance(raw.get("additional"), list) else []:
+        language = normalize_language(value)
+        if language in SUPPORTED_LANGUAGES and language != primary and language not in additional and len(additional) < 3:
+            additional.append(language)
+    return {"primary": primary, "additional": additional if max_count == 4 else [], "max_count": max_count}
+
+
+def _website_legacy_localized_content(draft):
+    sections = draft.get("sections", {}) if isinstance(draft.get("sections"), dict) else {}
+    hero = sections.get("hero", {}) if isinstance(sections.get("hero"), dict) else {}
+    about = sections.get("about", {}) if isinstance(sections.get("about"), dict) else {}
+    services = sections.get("services", {}) if isinstance(sections.get("services"), dict) else {}
+    why_choose = sections.get("why_choose", {}) if isinstance(sections.get("why_choose"), dict) else {}
+    gallery = sections.get("gallery", {}) if isinstance(sections.get("gallery"), dict) else {}
+    opening_hours = sections.get("opening_hours", {}) if isinstance(sections.get("opening_hours"), dict) else {}
+    faq = sections.get("faq", {}) if isinstance(sections.get("faq"), dict) else {}
+    contact = draft.get("contact", {}) if isinstance(draft.get("contact"), dict) else {}
+    return {
+        "page_title": str(draft.get("page_title") or ""),
+        "sections": {
+            "hero": {key: str(hero.get(key) or "") for key in ("title", "tagline", "cta_label")},
+            "about": {key: str(about.get(key) or "") for key in ("eyebrow", "title", "intro", "text")},
+            "services": {"eyebrow": str(services.get("eyebrow") or ""), "title": str(services.get("title") or ""), "items": [{"name": str(item if isinstance(item, str) else item.get("name") or ""), "description": "" if isinstance(item, str) else str(item.get("description") or "")} for item in services.get("items", []) if isinstance(item, (str, dict))]},
+            "why_choose": {"title": str(why_choose.get("title") or ""), "text": str(why_choose.get("text") or "")},
+            "gallery": {"title": str(gallery.get("title") or "")},
+            "opening_hours": {"title": str(opening_hours.get("title") or "")},
+            "faq": {"title": str(faq.get("title") or ""), "items": [{"question": str(item.get("question") or ""), "answer": str(item.get("answer") or "")} for item in faq.get("items", []) if isinstance(item, dict)]},
+        },
+        "contact": {key: str(contact.get(key) or "") for key in ("eyebrow", "title", "message")},
+    }
+
+
+def _website_localized_content(draft):
+    config = _website_language_config(draft)
+    legacy = _website_legacy_localized_content(draft)
+    stored = draft.get("localized") if isinstance(draft.get("localized"), dict) else {}
+    primary_value = stored.get(config["primary"]) if isinstance(stored.get(config["primary"]), dict) else {}
+    primary = {**legacy, **primary_value}
+    for key in ("sections", "contact"):
+        if isinstance(primary_value.get(key), dict):
+            primary[key] = {**legacy.get(key, {}), **primary_value[key]}
+    localized = {config["primary"]: primary}
+    for language in config["additional"]:
+        localized[language] = stored.get(language) if isinstance(stored.get(language), dict) else {}
+    return localized
+
+
+def _normalize_website_languages(draft):
+    draft["language_config"] = _website_language_config(draft)
+    draft["localized"] = _website_localized_content(draft)
+    return draft
+
+
 def _website_draft(business):
     stored = (business.premium_sidebar or {}).get("_website")
     if stored:
@@ -250,7 +333,13 @@ def _website_draft(business):
             draft["published_at"] = legacy_snapshot.get("published_at")
         draft = _normalize_website_trial(draft)
         draft = _normalize_website_contact(draft)
+        draft = _normalize_website_languages(draft)
         sections = dict(draft.get("sections", {}))
+        sections.setdefault("why_choose", {"enabled": False, "title": "Why choose us", "text": ""})
+        sections.setdefault("opening_hours", {"enabled": False, "title": "Opening Hours", "items": _website_opening_hours_from_business(business)})
+        sections.setdefault("faq", {"enabled": False, "title": "Frequently Asked Questions", "items": []})
+        sections.setdefault("gallery", {"enabled": False, "items": []})
+        draft["sections"] = sections
         services_section = dict(sections.get("services", {}))
         service_items = services_section.get("items", [])
         if not isinstance(service_items, list):
@@ -275,6 +364,7 @@ def _website_draft(business):
             hero["image"] = identity["background"]
             sections["hero"] = hero
             draft["sections"] = sections
+        draft = _normalize_website_languages(draft)
         draft.setdefault("page_title", hero.get("title") or business.name)
         draft.setdefault("template_id", DEFAULT_WEBSITE_TEMPLATE)
         draft.setdefault("effects", {"reveal": False, "background_parallax": False})
@@ -334,8 +424,11 @@ def _website_draft(business):
             # Keep empty service slots private to the dashboard preview until the
             # owner supplies real service content.
             "services": {"enabled": True, "eyebrow": "What we offer", "title": "Services / Products", "items": services + [{"private_placeholder": True} for _ in range(3)]},
-            "about": {"enabled": bool(business.description), "eyebrow": "Why choose us", "title": "Why choose us", "text": business.description},
+            "about": {"enabled": bool(business.description), "eyebrow": "About", "title": "About", "intro": "", "text": business.description, "image": ""},
+            "why_choose": {"enabled": False, "title": "Why choose us", "text": ""},
             "gallery": {"enabled": bool(gallery), "items": gallery},
+            "opening_hours": {"enabled": bool(_website_opening_hours_from_business(business)), "title": "Opening Hours", "items": _website_opening_hours_from_business(business)},
+            "faq": {"enabled": False, "title": "Frequently Asked Questions", "items": []},
             "contact": {
                 "enabled": True,
                 "location_label": "Location",
@@ -349,6 +442,7 @@ def _website_draft(business):
         },
     }
     draft = _normalize_website_contact(draft)
+    draft = _normalize_website_languages(draft)
     draft["content"] = _website_content_from_draft(business, draft)
     return draft
 
@@ -391,14 +485,24 @@ class DashboardAuthView(APIView):
         if not identifier or not password:
             return Response({"detail": "Email and password are required."}, status=status.HTTP_400_BAD_REQUEST)
         user = authenticate(request, username=identifier, password=password)
-        if user is None and "@" in identifier:
-            from django.contrib.auth import get_user_model
-            candidate = get_user_model().objects.filter(email__iexact=identifier).first()
-            user = authenticate(request, username=candidate.username, password=password) if candidate else None
+        candidate = get_user_model().objects.filter(email__iexact=identifier).first() if "@" in identifier else get_user_model().objects.filter(username__iexact=identifier).first()
+        if user is None and candidate and candidate.check_password(password):
+            user = candidate
+            user.backend = "django.contrib.auth.backends.ModelBackend"
         if user is None:
             return Response({"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
-            return Response({"detail": "Please verify your email before signing in.", "email_verification_required": True}, status=status.HTTP_403_FORBIDDEN)
+            pending_verification = AccountVerificationToken.objects.filter(
+                user=user, used_at__isnull=True, expires_at__gt=timezone.now(),
+            ).exists()
+            if not pending_verification:
+                return Response({"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
+            # Django's session backend will discard an inactive user on the
+            # next request. A live verification token identifies a pending
+            # account, while ownership-sensitive operations still require a
+            # verified claim.
+            user.is_active = True
+            user.save(update_fields=["is_active"])
         claim = None
         pending_token = request.data.get("pending_token")
         if pending_token:
@@ -410,7 +514,9 @@ class DashboardAuthView(APIView):
                 return Response({"detail": "The listing continuation is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
             if BusinessClaimRequest.objects.filter(listing=claim.listing, status="verified").exclude(email__iexact=user.email).exists():
                 return Response({"detail": "This business has already been claimed by another verified owner."}, status=status.HTTP_409_CONFLICT)
-            if claim.status == "pending":
+            if claim.status == "pending" and not AccountVerificationToken.objects.filter(
+                user=user, claim=claim, used_at__isnull=True, expires_at__gt=timezone.now(),
+            ).exists():
                 _verify_claim_for_user(claim, user)
         login(request, user)
         return Response({"authenticated": True, "csrfToken": get_token(request), "business_id": claim.listing_id if claim else None, "user": {"username": user.username, "email": user.email}})
@@ -429,7 +535,7 @@ class DashboardAuthView(APIView):
             claim = BusinessClaimRequest.objects.filter(verification_token=pending_token, status="pending", email__iexact=email).select_related("listing").first()
             if claim is None:
                 return Response({"detail": "The listing continuation is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
-        user = get_user_model().objects.create_user(username=email, email=email, password=password, is_active=False)
+        user = get_user_model().objects.create_user(username=email, email=email, password=password, is_active=True)
         try:
             token = _send_account_verification(user, claim)
         except Exception:
@@ -469,7 +575,7 @@ class AccountVerificationResendView(APIView):
 
     def post(self, request):
         email = (request.data.get("email") or "").strip().lower()
-        user = get_user_model().objects.filter(email__iexact=email, is_active=False).first()
+        user = get_user_model().objects.filter(email__iexact=email).first()
         if user:
             claim = BusinessClaimRequest.objects.filter(email__iexact=email, status="pending").order_by("-created_at").first()
             try:
@@ -565,7 +671,7 @@ class CreateBusinessView(APIView):
         else:
             user = get_user_model().objects.filter(email__iexact=owner_email).first()
             if user is None:
-                user = get_user_model().objects.create_user(username=owner_email, email=owner_email, password=None, is_active=False)
+                user = get_user_model().objects.create_user(username=owner_email, email=owner_email, password=None, is_active=True)
                 account_created = True
             verification_token = _send_account_verification(user, claim)
         return Response({"id": business.id, "name": business.name, "slug": business.slug, "canonical_path": business.get_canonical_path("en"), "claim_status": claim.status, "pending_token": str(claim.verification_token), "verification_token": str(verification_token.token) if verification_token else "", "account_created": account_created, "email": owner_email, "tier": business.tier}, status=status.HTTP_201_CREATED)
@@ -977,9 +1083,13 @@ class DashboardWebsiteView(APIView):
                 # before the server confirms the entitlement.
                 website_settings["attribution_visible"] = True
             draft["settings"] = website_settings
+        if isinstance(request.data.get("language_config"), dict):
+            draft["language_config"] = request.data["language_config"]
+        if isinstance(request.data.get("localized"), dict):
+            draft["localized"] = request.data["localized"]
         if isinstance(request.data.get("sections"), dict):
             sections = dict(draft.get("sections", {}))
-            for key in ("hero", "services", "about", "gallery", "contact"):
+            for key in ("hero", "services", "about", "why_choose", "gallery", "opening_hours", "faq", "contact"):
                 if isinstance(request.data["sections"].get(key), dict):
                     sections[key] = request.data["sections"][key]
             draft["sections"] = sections
@@ -997,6 +1107,7 @@ class DashboardWebsiteView(APIView):
                 contact["visibility"] = visibility
             draft["contact"] = contact
         draft = _normalize_website_contact(draft)
+        draft = _normalize_website_languages(draft)
         draft["content"] = _website_content_from_draft(business, draft)
         _save_website(business, draft)
         return Response(_website_response(business))
@@ -1023,6 +1134,42 @@ class DashboardWebsiteTrialView(APIView):
         draft["status"] = "trial"
         _save_website(business, draft)
         return Response(_website_response(business))
+
+
+class DashboardWebsiteAISuggestionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, business_id):
+        # AI suggestions are non-persistent previews. A pending claim is enough
+        # to establish which listing the authenticated claimant manages; saving
+        # and publishing still use _verified_business and require verification.
+        business = get_object_or_404(owned_businesses(request.user), pk=business_id)
+        field = str(request.data.get("field") or "").strip()
+        current_value = str(request.data.get("current_value") or "")
+        if len(current_value) > 4000:
+            return Response({"detail": "This field is too long for an AI suggestion."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            context = build_suggestion_context(
+                business=business,
+                draft=_website_draft(business),
+                field=field,
+                current_value=current_value,
+                language=normalize_language(request.data.get("language", "en")),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            suggestion = generate_field_suggestion(context)
+        except (RuntimeError, OSError, ValueError) as exc:
+            return Response({"detail": str(exc) or "AI suggestions are temporarily unavailable."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"field": field, "suggestion": suggestion, "language": context["language"]})
+
+
+class DashboardAICapabilitiesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"suggestions": suggestions_are_available()})
 
 
 class DashboardDescriptionAssistView(APIView):

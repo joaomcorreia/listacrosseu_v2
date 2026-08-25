@@ -9,7 +9,7 @@ import InnerPageHero from '@/components/InnerPageHero';
 import BlogPostsSlider from '@/components/blog/BlogPostsSlider';
 import { getBusinessCanonicalPath } from '@/lib/businessUrls';
 import { PUBLIC_CLAIM_CTA_ENABLED } from '@/lib/env.public';
-import { ListingAdsBlock } from './ListingAdsBlock';
+import SidebarAdSlot from '@/components/ads/SidebarAdSlot';
 import BusinessDiscoverySections from './BusinessDiscoverySections';
 import type { BusinessDiscovery, DiscoveryBusiness } from './BusinessDiscoverySections';
 
@@ -82,7 +82,7 @@ export function FreeBusinessDetailPage({ business, discovery, relatedBusinesses 
     <main className="container mx-auto px-4 py-8"><div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start"><div>
       {discovery ? <BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country.name} countrySlug={business.country.slug} /> : relatedBusinesses.length > 0 && business.city?.name && <section className="mx-auto mt-0 max-w-5xl" aria-labelledby="nearby-businesses-heading"><h2 id="nearby-businesses-heading" className="text-2xl font-bold text-slate-950">More businesses in {relatedHeading || business.city.name}</h2><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{relatedBusinesses.slice(0, 12).map((item) => <RelatedCard key={item.id} business={item} lang={lang} />)}</div></section>}
       <BlogPostsSlider lang={lang} countrySlug={business.country?.slug} countryName={business.country?.name} mode="country" />
-    </div><aside className="lg:sticky lg:top-24"><ListingAdsBlock showDirectoryAd={false} /></aside></div></main>
+    </div><aside className="lg:sticky lg:top-24"><SidebarAdSlot /></aside></div></main>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({'@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name, ...(business.description && { description: business.description }), ...(business.website && { url: business.website }), ...(business.phone && { telephone: business.phone }), ...(business.address && { address: { '@type': 'PostalAddress', streetAddress: business.address_line1 || business.address, addressLocality: business.city?.name, addressCountry: business.country?.name } })}) }} />
   </div>;
 }

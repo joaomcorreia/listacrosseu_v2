@@ -164,7 +164,7 @@ def create_claim(request):
         password = str(data.get("password") or "")
         if len(password) < 8:
             return Response({"detail": "Choose a password of at least 8 characters to continue."}, status=status.HTTP_400_BAD_REQUEST)
-        user = get_user_model().objects.create_user(username=email, email=email, password=password, is_active=False)
+        user = get_user_model().objects.create_user(username=email, email=email, password=password, is_active=True)
         from .dashboard import _send_account_verification
         try:
             _send_account_verification(user, claim)

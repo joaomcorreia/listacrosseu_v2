@@ -323,7 +323,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
         <div className="mx-auto max-w-7xl px-4 py-20">
           <div className="text-center text-white">
             {editable("title", content.title || country.name, "text-4xl font-bold tracking-tight sm:text-5xl", "h1")}
-            <p className="mt-6 text-xl leading-8 text-blue-100">
+            <div className="mt-6 text-xl leading-8 text-blue-100">
             {editable("subtitle", content.subtitle || format(t.directory.country.heroSubtitle, { country: country.name }), "text-xl leading-8 text-blue-100", "p", true)}
             {content.cta_label && (editMode ? (
               <div className="mt-7 inline-flex rounded-md bg-white px-4 py-2 text-sm font-semibold text-blue-800">
@@ -334,7 +334,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
                 {content.cta_label}
               </a>
             ))}
-            </p>
+            </div>
             {businesses && (
               <div className="mt-4 text-blue-100">
                 {businesses.total > 0 ? (
