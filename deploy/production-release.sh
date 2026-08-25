@@ -60,6 +60,16 @@ fi
 
 systemctl restart "$BACKEND_SERVICE"
 systemctl restart "$FRONTEND_SERVICE"
-curl --fail --silent --show-error http://127.0.0.1:8004/healthz/ >/dev/null
-curl --fail --silent --show-error http://127.0.0.1:3004/ >/dev/null
+wait_for_http() {
+  local url=$1
+  for _ in $(seq 1 30); do
+    if curl --fail --silent --show-error "$url" >/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  curl --fail --silent --show-error "$url" >/dev/null
+}
+wait_for_http http://127.0.0.1:8004/healthz/
+wait_for_http http://127.0.0.1:3004/
 echo "Release $RELEASE_ID is healthy; database backup: $BACKUPS/db.sqlite3.$stamp"
