@@ -96,6 +96,7 @@ class FreshLoginTests(TestCase):
         self.assertTrue(user.is_active)
         self.assertEqual(self.client.post("/api/dashboard/auth/", {"email": user.email, "password": "safe-password-123"}, format="json").status_code, 200)
         self.assertEqual(self.client.post("/api/dashboard/logout/").status_code, 200)
+        self.assertIn(self.client.get("/api/dashboard/businesses/").status_code, (401, 403))
         self.assertEqual(self.client.post("/api/dashboard/auth/", {"email": user.email, "password": "safe-password-123"}, format="json").status_code, 200)
 
     def test_ai_capability_is_disabled_without_server_key(self):

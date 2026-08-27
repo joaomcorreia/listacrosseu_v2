@@ -273,7 +273,23 @@ export default function DashboardPageClient({ lang, initialBusinessId, initialPa
     if (response.ok) { const updated = { ...data, visibility: { ...defaultVisibility, ...data.visibility } }; setForm(updated); setBusinesses((items) => items.map((item) => item.id === updated.id ? updated : item)); } else setError(data.detail || 'Unable to remove the business photo.');
     setLogoUploading(false);
   }
-  async function logout() { const response = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/logout/`, { method: 'POST', credentials: 'include', headers: { 'X-CSRFToken': csrfValue || csrfToken() } }); if (response.ok) window.location.href = `/${lang}`; else setError('Unable to log out. Please try again.'); }
+  async function logout() {
+    try {
+      // Refresh the token immediately before the state-changing request. The
+      // verification/password setup flow can rotate the session and CSRF
+      // cookie while this dashboard remains mounted.
+      const authResponse = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/auth/`, { credentials: 'include', cache: 'no-store' });
+      const authData = await authResponse.json().catch(() => ({}));
+      const response = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/logout/`, { method: 'POST', credentials: 'include', headers: { 'X-CSRFToken': authData.csrfToken || csrfValue || csrfToken() } });
+      if (response.ok) {
+        window.location.href = `/${lang}`;
+        return;
+      }
+      setError('Unable to log out. Please try again.');
+    } catch {
+      setError('Unable to log out. Please try again.');
+    }
+  }
   async function changePassword(event: React.FormEvent) { event.preventDefault(); const response = await fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/password/`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfValue || csrfToken() }, body: JSON.stringify(passwords) }); setMessage(response.ok ? 'Password changed.' : ((await response.json().catch(() => ({}))).detail || 'Unable to change password.')); }
 
   function selectPanel(next: DashboardPanel) { setPanel(next); setMobileNav(false); setMessage(''); setError(''); }
