@@ -6,7 +6,7 @@ import uuid
 from urllib.parse import urlparse
 
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from django.core.mail import send_mail
@@ -1179,6 +1179,10 @@ class DashboardPasswordChangeView(APIView):
             return Response({"detail": " ".join(error.messages)}, status=status.HTTP_400_BAD_REQUEST)
         request.user.set_password(new_password)
         request.user.save(update_fields=["password"])
+        # Changing a password rotates Django's session auth hash. Keep the
+        # verification-created session valid so a passwordless owner can move
+        # directly into the dashboard without being logged out.
+        update_session_auth_hash(request, request.user)
         return Response({"success": True})
 
 

@@ -666,6 +666,7 @@ class ListingAccountVerificationFlowTests(TestCase):
         self.assertEqual(dashboard.data["results"][0]["name"], payload["name"])
         password_set = self.client.post("/api/dashboard/password/", {"current_password": "", "new_password": "safe-password-123"}, format="json")
         self.assertEqual(password_set.status_code, 200)
+        self.assertEqual(self.client.get("/api/dashboard/businesses/").status_code, 200)
         self.client.post("/api/dashboard/logout/")
         logged_in = self.client.post("/api/dashboard/auth/", {"email": payload["contact_email"], "password": "safe-password-123"}, format="json")
         self.assertEqual(logged_in.status_code, 200)

@@ -21,7 +21,7 @@ export default function AccountVerificationClient({ lang }: { lang: string }) {
       setMessage('This verification link is missing a token.');
       return;
     }
-    fetch(`${PUBLIC_API_BASE_URL}/api/account/verify/?token=${encodeURIComponent(token)}`)
+    fetch(`${PUBLIC_API_BASE_URL}/api/account/verify/?token=${encodeURIComponent(token)}`, { credentials: 'include' })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || 'This verification link is invalid or expired.');
