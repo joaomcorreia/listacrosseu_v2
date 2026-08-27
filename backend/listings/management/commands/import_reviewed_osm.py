@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from listings.models import Business, Category, City, Country
-from listings.services.osm_city_seeder import OSM_SOURCE
+from listings.services.osm_city_seeder import OSM_SOURCE, repair_mojibake
 
 
 class Command(BaseCommand):
@@ -89,7 +89,7 @@ class Command(BaseCommand):
                 missing_city += 1
                 skipped += 1
                 return None
-            name = str(row.get("name") or "").strip()
+            name = repair_mojibake(str(row.get("name") or "").strip())
             if not name:
                 skipped += 1
                 return None
@@ -101,8 +101,8 @@ class Command(BaseCommand):
                 for row, category, city, external_id, name in planned_rows:
                     Business.objects.create(
                         name=name, slug=self.unique_slug(name, city, country), country=country, city=city,
-                        category=category, address=str(row.get("address") or "").strip(),
-                        address_line1=str(row.get("address") or "").strip(), postal_code=str(row.get("postal_code") or "").strip(),
+                        category=category, address=repair_mojibake(str(row.get("address") or "").strip()),
+                        address_line1=repair_mojibake(str(row.get("address") or "").strip()), postal_code=repair_mojibake(str(row.get("postal_code") or "").strip()),
                         latitude=row.get("latitude"), longitude=row.get("longitude"), phone=str(row.get("phone") or "").strip(),
                         website=str(row.get("website") or "").strip(), source=OSM_SOURCE, external_id=external_id,
                         imported_from_csv=False, csv_imported_at=now, csv_source_file=", ".join(item.name for item in paths), keywords=[],

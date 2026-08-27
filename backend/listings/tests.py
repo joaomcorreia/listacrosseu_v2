@@ -258,6 +258,35 @@ class DashboardOwnershipTests(TestCase):
         self.assertEqual(response.data["website"]["template_id"], "service-pro")
         self.assertEqual(response.data["website"]["sections"]["hero"]["title"], before)
 
+    def test_website_layout_variant_selection_preserves_existing_draft_content(self):
+        self.client.force_authenticate(self.owner)
+        created = self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/")
+        self.assertEqual(created.status_code, 201)
+        before = created.data["website"]["sections"]["hero"]["title"]
+        response = self.client.patch(f"/api/dashboard/businesses/{self.business.id}/website/", {"template_variant": "variant-2"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["website"]["template_variant"], "variant-2")
+        self.assertEqual(response.data["website"]["sections"]["hero"]["title"], before)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_published_website_contact_form_uses_private_recipient_and_honeypot(self):
+        self.client.force_authenticate(self.owner)
+        created = self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/", {"contact_form": {"recipient_email": "owner@example.com"}}, format="json")
+        self.assertEqual(created.status_code, 201)
+        self.client.patch(f"/api/dashboard/businesses/{self.business.id}/website/", {"contact_form": {"recipient_email": "owner@example.com"}}, format="json")
+        self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/trial/")
+        published = self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/publish/")
+        self.assertEqual(published.status_code, 200)
+        website_slug = published.data["website"]["website_slug"]
+        self.client.force_authenticate(None)
+        response = self.client.post(f"/api/listings/generated-websites/{website_slug}/contact/", {"name": "Visitor", "email": "visitor@example.com", "message": "Hello", "website_url": ""}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["owner@example.com"])
+        self.assertEqual(mail.outbox[0].reply_to, ["visitor@example.com"])
+        blocked = self.client.post(f"/api/listings/generated-websites/{website_slug}/contact/", {"name": "Bot", "email": "bot@example.com", "message": "Spam", "website_url": "filled"}, format="json")
+        self.assertEqual(blocked.status_code, 400)
+
     def test_generated_website_omits_empty_content_sections(self):
         self.client.force_authenticate(self.owner)
         self.business.description = ""
@@ -266,11 +295,12 @@ class DashboardOwnershipTests(TestCase):
         response = self.client.post(f"/api/dashboard/businesses/{self.business.id}/website/")
         self.assertEqual(response.status_code, 201)
         website = response.data["website"]
-        self.assertFalse(website["sections"]["about"]["enabled"])
+        self.assertTrue(website["sections"]["about"]["enabled"])
+        self.assertIn("Learn more about", website["sections"]["about"]["title"])
         self.assertTrue(website["sections"]["services"]["enabled"])
         self.assertEqual(len(website["sections"]["services"]["items"]), 3)
         self.assertFalse(website["sections"]["gallery"]["enabled"])
-        self.assertEqual(website["content"]["description"], "")
+        self.assertIn("Learn more about Owned Listing", website["content"]["description"])
 
     def test_generated_website_keeps_actual_location_and_publishes_public_page(self):
         self.client.force_authenticate(self.owner)
@@ -568,7 +598,7 @@ class ClaimedListingFlowTests(TestCase):
             "postal_code": "1000", "phone": "+00 111 222", "contact_email": "contact@fictional.example",
             "whatsapp_number": "+00 333 444", "languages": ["English", "Dutch", "French"], "website": "https://fictional.example",
             "overlay_color": "#111827", "overlay_opacity": 0.6, "accent_color": "#16A34A",
-            "visibility": {"address": False, "phone": True, "whatsapp": True, "email": True, "website": True, "languages": True, "description": True, "business_type": True},
+            "visibility": {"address": False, "city": True, "region": True, "country": True, "phone": True, "whatsapp": True, "email": True, "website": True, "languages": True, "description": True, "business_type": True},
         }, format="json")
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(saved.data["claimed_listing_draft"]["languages"], ["English", "Dutch", "French"])
@@ -580,7 +610,21 @@ class ClaimedListingFlowTests(TestCase):
         self.assertEqual(public.data["whatsapp_number"], "+00 333 444")
         self.assertEqual(public.data["languages"], ["English", "Dutch", "French"])
         self.assertEqual(public.data["address"], "")
+        self.assertEqual(public.data["address_line1"], "")
+        self.assertEqual(public.data["postal_code"], "")
+        self.assertEqual(public.data["city"]["name"], "Testville")
+        self.assertEqual(public.data["country"]["name"], "Testland")
         self.assertEqual(public.data["email"], "")
+
+        saved = self.client.put(f"/api/dashboard/businesses/{self.business.id}/claimed-listing/draft/", {
+            "visibility": {"address": True, "city": False, "region": False, "country": True, "phone": False, "whatsapp": True, "email": True, "website": True},
+        }, format="json")
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(self.client.post(f"/api/dashboard/businesses/{self.business.id}/claimed-listing/publish/").status_code, 200)
+        hidden = self.client.get(f"/api/listings/businesses/{self.business.slug}/")
+        self.assertIsNone(hidden.data["city"])
+        self.assertEqual(hidden.data["region"], "")
+        self.assertEqual(hidden.data["phone"], "")
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FRONTEND_SITE_URL="http://localhost:3004")

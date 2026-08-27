@@ -2,8 +2,11 @@ import { SUPPORTED_LANGS, normalizeLang, type SupportedLang } from '@/lib/lang';
 export type { SupportedLang } from '@/lib/lang';
 
 export type GeneratedTemplateId = 'editorial-v1' | 'classic-business' | 'service-pro';
+export type GeneratedTemplateVariant = 'variant-1' | 'variant-2';
+export type GeneratedWebsitePage = 'home' | 'about' | 'services' | 'gallery' | 'faq' | 'contact';
 
 export const DEFAULT_GENERATED_TEMPLATE_ID: GeneratedTemplateId = 'editorial-v1';
+export const DEFAULT_GENERATED_TEMPLATE_VARIANT: GeneratedTemplateVariant = 'variant-1';
 
 export type WebsiteContact = {
   eyebrow?: string;
@@ -25,6 +28,10 @@ export type WebsiteContact = {
 export type GeneratedGalleryImage = string;
 export type GeneratedOpeningHour = { day: string; hours: string; closed?: boolean };
 export type GeneratedFaqItem = { question?: string; answer?: string };
+export type GeneratedHeroSlide = { enabled?: boolean; title?: string; tagline?: string; cta_label?: string; cta_href?: string; order?: number };
+export type GeneratedSocialLinks = Partial<Record<'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'x' | 'whatsapp', string>>;
+export type GeneratedWebsiteLocation = { address: string; latitude?: number | null; longitude?: number | null; map_enabled: boolean; directions_enabled: boolean };
+export type GeneratedContactFormConfig = { enabled: boolean; recipient_email?: string };
 export type WebsiteLanguageConfig = { primary: SupportedLang; additional: SupportedLang[]; max_count: 1 | 4 };
 export type GeneratedLocalizedContent = {
   page_title?: string;
@@ -88,7 +95,7 @@ export function getLocalizedWebsiteView(website: GeneratedWebsite['website'], re
   });
   const nextSections = {
     ...raw,
-    hero: overlay('hero', ['title', 'tagline', 'cta_label']),
+      hero: overlay('hero', ['title', 'tagline', 'cta_label', 'slides']),
     about: overlay('about', ['eyebrow', 'title', 'intro', 'text']),
     services: { ...raw.services, ...overlay('services', ['eyebrow', 'title']), items: services },
     why_choose: { ...raw.why_choose, ...overlay('why_choose', ['title', 'text']) },
@@ -119,7 +126,9 @@ export type GeneratedWebsite = {
   preview_url?: string;
   public_url?: string;
   template_id?: GeneratedTemplateId | string;
+  template_variant?: GeneratedTemplateVariant | string;
   website: {
+    template_variant?: GeneratedTemplateVariant | string;
     status: string;
     website_slug: string;
     page_title: string;
@@ -134,12 +143,15 @@ export type GeneratedWebsite = {
     entitlement?: { attribution_visibility_unlocked?: boolean };
     contact: WebsiteContact;
     effects?: { reveal?: boolean; background_parallax?: boolean };
+    social_links?: GeneratedSocialLinks;
+    location?: GeneratedWebsiteLocation;
+    contact_form?: GeneratedContactFormConfig;
     content?: GeneratedBusinessContent;
     language_config?: WebsiteLanguageConfig;
     localized?: Record<string, GeneratedLocalizedContent>;
     trial: { status: string; started_at: string | null; ends_at: string | null };
     sections: {
-      hero: { enabled: boolean; title: string; tagline: string; cta_label?: string; image: string; image_position?: string; overlay?: number };
+      hero: { enabled: boolean; title: string; tagline: string; cta_label?: string; image: string; image_position?: string; overlay?: number; slides?: GeneratedHeroSlide[] };
       services: { enabled: boolean; eyebrow?: string; title?: string; items: Array<string | { name?: string; description?: string; private_placeholder?: boolean }> };
       about: { enabled: boolean; eyebrow?: string; title: string; intro?: string; text: string; image?: string; image_position?: string; overlay?: number };
       why_choose?: { enabled: boolean; title?: string; text?: string };
@@ -176,6 +188,7 @@ export function normalizeGeneratedWebsite(input: GeneratedWebsite): GeneratedWeb
   return {
     ...input,
     template_id: input.template_id || DEFAULT_GENERATED_TEMPLATE_ID,
+    template_variant: input.template_variant === 'variant-2' ? 'variant-2' : DEFAULT_GENERATED_TEMPLATE_VARIANT,
     website: {
       ...website,
       contact: normalizedContact,
@@ -183,9 +196,12 @@ export function normalizeGeneratedWebsite(input: GeneratedWebsite): GeneratedWeb
       language_config: normalizeWebsiteLanguageConfig(website.language_config, 'en'),
       localized: localizedContentFor({ ...website, sections: { ...sections, hero: { ...sections.hero, image_position: sections.hero?.image_position || 'center', overlay: sections.hero?.overlay ?? 0.75 }, about: { ...sections.about, image_position: sections.about?.image_position || 'center', overlay: sections.about?.overlay ?? 0.25, intro: sections.about?.intro || '' }, gallery: { ...sections.gallery, enabled: sections.gallery?.enabled ?? false, items: sections.gallery?.items || [] }, opening_hours: { ...sections.opening_hours, enabled: sections.opening_hours?.enabled ?? false, title: sections.opening_hours?.title || 'Opening Hours', items: sections.opening_hours?.items || [] }, faq: { ...sections.faq, enabled: sections.faq?.enabled ?? false, title: sections.faq?.title || 'Frequently Asked Questions', items: sections.faq?.items || [] } } }),
       effects: { reveal: false, background_parallax: false, ...(website.effects || {}) },
+      social_links: { ...(website.social_links || {}) },
+      location: { address: '', map_enabled: true, directions_enabled: true, ...(website.location || {}) },
+      contact_form: { enabled: true, ...(website.contact_form || {}) },
       sections: {
         ...sections,
-        hero: { image_position: 'center', overlay: 0.75, ...sections.hero },
+        hero: { image_position: 'center', overlay: 0.75, slides: [{ enabled: true, title: sections.hero?.title || '', tagline: sections.hero?.tagline || '', cta_label: sections.hero?.cta_label || '', order: 0 }], ...sections.hero },
         about: { image_position: 'center', overlay: 0.25, intro: '', ...sections.about },
         why_choose: { ...sections.why_choose, enabled: sections.why_choose?.enabled ?? false, title: sections.why_choose?.title || 'Why choose us', text: sections.why_choose?.text || '' },
         gallery: { ...sections.gallery, enabled: sections.gallery?.enabled ?? false, title: sections.gallery?.title || 'Gallery', items: sections.gallery?.items || [] },

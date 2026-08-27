@@ -13,6 +13,11 @@ import { getBusinessCanonicalPath } from "@/lib/businessUrls";
 import { fetchBusinessDiscovery } from '@/lib/business-discovery';
 
 type Business = BusinessDetail;
+const BUSINESS_LANGUAGES = ["en", "fr", "de", "es", "pt", "nl"] as const;
+
+function businessHreflangs(path: string): Record<string, string> {
+  return Object.fromEntries(BUSINESS_LANGUAGES.map((language) => [language, path.replace(/^\/[^/]+(?=\/|$)/, `/${language}`)]));
+}
 
 async function fetchBusiness(slug: string): Promise<Business | null> {
   try {
@@ -99,32 +104,14 @@ export async function generateMetadata({
   const countryName = business.country?.name || "";
   const categoryName = business.category?.name || "Business";
 
-  const titleBase = cityName
-    ? `${business.name} in ${cityName}`
-    : business.name;
+  const titleBase = business.name;
   const description =
     business.description ||
     `${categoryName} in ${cityName || countryName}. Professional services and reliable business information on ListAcross EU.`;
 
   const canonicalPath = getBusinessCanonicalPath(business, lang);
 
-  return generateSEO(
-    {
-      title: titleBase,
-      description,
-      canonical: canonicalPath,
-      ogImage: business.logo_url || business.image_url,
-      keywords: business.keywords?.length
-        ? business.keywords
-        : [
-            "business directory",
-            "local business",
-            "services",
-            "ListAcross EU",
-            countryName,
-          ].filter(Boolean) as string[],
-    },
-    lang,
-  );
+  const seo = generateSEO({ title: titleBase, description, canonical: canonicalPath, ogImage: business.logo_url || business.image_url, keywords: business.keywords?.length ? business.keywords : ["business directory", "local business", "services", "ListAcross EU", countryName].filter(Boolean) as string[] }, lang);
+  return { ...seo, alternates: { ...(seo.alternates || {}), canonical: canonicalPath, languages: businessHreflangs(canonicalPath) } };
 }
 

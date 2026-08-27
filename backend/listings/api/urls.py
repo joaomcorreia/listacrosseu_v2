@@ -28,6 +28,7 @@ from .dashboard import (
     DashboardClaimedListingUnpublishView,
     DashboardBusinessLogoView,
     DashboardClaimedListingBackgroundView,
+    DashboardClaimedListingGalleryView,
     DashboardBusinessesView,
     DashboardAuthView,
     DashboardDescriptionAssistView,
@@ -41,14 +42,18 @@ from .dashboard import (
     CreateBusinessView,
     AccountVerificationView,
     AccountVerificationResendView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
 )
-from .website_editor import DashboardWebsitePublishView, DashboardWebsiteUnpublishView, PublicGeneratedWebsiteView
+from .website_editor import DashboardWebsitePublishView, DashboardWebsiteUnpublishView, PublicGeneratedWebsiteView, PublicGeneratedWebsiteContactView
 
 
 urlpatterns = [
     path("dashboard/auth/", DashboardAuthView.as_view(), name="dashboard-auth"),
     path("account/verify/", AccountVerificationView.as_view(), name="account-verify"),
     path("account/resend-verification/", AccountVerificationResendView.as_view(), name="account-resend-verification"),
+    path("account/password-reset/", PasswordResetRequestView.as_view(), name="password-reset-request"),
+    path("account/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
     path("dashboard/businesses/", DashboardBusinessesView.as_view(), name="dashboard-businesses"),
     path("dashboard/businesses/<int:business_id>/", DashboardBusinessDetailView.as_view(), name="dashboard-business-detail"),
     path("dashboard/businesses/<int:business_id>/claimed-listing/draft/", DashboardClaimedListingDraftView.as_view(), name="dashboard-claimed-listing-draft"),
@@ -56,6 +61,7 @@ urlpatterns = [
     path("dashboard/businesses/<int:business_id>/claimed-listing/unpublish/", DashboardClaimedListingUnpublishView.as_view(), name="dashboard-claimed-listing-unpublish"),
     path("dashboard/businesses/<int:business_id>/logo/", DashboardBusinessLogoView.as_view(), name="dashboard-business-logo"),
     path("dashboard/businesses/<int:business_id>/claimed-listing/background/", DashboardClaimedListingBackgroundView.as_view(), name="dashboard-claimed-listing-background"),
+    path("dashboard/businesses/<int:business_id>/claimed-listing/gallery/", DashboardClaimedListingGalleryView.as_view(), name="dashboard-claimed-listing-gallery"),
     path("dashboard/businesses/<int:business_id>/trial/", DashboardTrialView.as_view(), name="dashboard-trial"),
     path("dashboard/businesses/<int:business_id>/website/", DashboardWebsiteView.as_view(), name="dashboard-website"),
     path("dashboard/businesses/<int:business_id>/website/trial/", DashboardWebsiteTrialView.as_view(), name="dashboard-website-trial"),
@@ -64,6 +70,7 @@ urlpatterns = [
     path("dashboard/businesses/<int:business_id>/website/publish/", DashboardWebsitePublishView.as_view(), name="dashboard-website-publish"),
     path("dashboard/businesses/<int:business_id>/website/unpublish/", DashboardWebsiteUnpublishView.as_view(), name="dashboard-website-unpublish"),
     path("generated-websites/<slug:slug>/", PublicGeneratedWebsiteView.as_view(), name="public-generated-website"),
+    path("generated-websites/<slug:slug>/contact/", PublicGeneratedWebsiteContactView.as_view(), name="public-generated-website-contact"),
     path("dashboard/password/", DashboardPasswordChangeView.as_view(), name="dashboard-password"),
     path("dashboard/logout/", DashboardLogoutView.as_view(), name="dashboard-logout"),
     path("dashboard/description-assist/", DashboardDescriptionAssistView.as_view(), name="dashboard-description-assist"),

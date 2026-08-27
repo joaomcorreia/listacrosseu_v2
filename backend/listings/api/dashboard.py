@@ -10,6 +10,9 @@ from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from django.core.mail import send_mail
+from django.core.files.storage import default_storage
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -23,7 +26,7 @@ from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from listings.models import AccountVerificationToken, Business, BusinessClaimRequest, Category, CategorySuggestion, City, Country
+from listings.models import AccountVerificationToken, Business, BusinessClaimRequest, Category, CategorySuggestion, City, Country, PasswordResetToken
 from listings.claim_flow import claimed_listing_container, normalize_claimed_draft, public_claimed_presentation, save_claimed_draft
 from listings.category_suggestions import ensure_category_suggestion, resolve_pending_category_suggestions
 from listings.services.ai_suggestions import SUPPORTED_LANGUAGES, build_suggestion_context, generate_field_suggestion, normalize_language, suggestions_are_available
@@ -35,7 +38,19 @@ EDITABLE_FIELDS = {
     "name", "business_type", "phone", "description", "owner_name", "email",
     "website", "logo_url", "image_url", "region", "address", "address_line1", "postal_code",
 }
-VISIBILITY_FIELDS = {"owner_name", "city", "region", "phone", "email", "website", "address", "whatsapp", "languages", "description", "business_type"}
+
+
+def _normalized_business_name(value):
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
+
+
+def _website_domain(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+    return (parsed.hostname or "").casefold().removeprefix("www.")
+VISIBILITY_FIELDS = {"owner_name", "city", "region", "country", "phone", "email", "website", "address", "whatsapp", "languages", "description", "business_type"}
 ACCENT_COLORS = {"#2563EB", "#16A34A", "#0F766E", "#7C3AED", "#EA580C", "#DC2626", "#0F172A", "#64748B"}
 WEBSITE_PALETTES = [
     ("#2563eb", "#0f172a"), ("#0f766e", "#102a2a"), ("#b45309", "#2a1a0f"),
@@ -79,6 +94,31 @@ def _send_account_verification(user, claim=None):
     send_mail(
         "Confirm your List Across EU account",
         f"Confirm your account by opening this link:\n\n{_verification_url(token.token)}\n\nThis link expires in 24 hours.",
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False,
+    )
+    return token
+
+
+def _verified_account(user):
+    if not user or not user.is_active:
+        return False
+    if BusinessClaimRequest.objects.filter(email__iexact=user.email, status="verified").exists():
+        return True
+    return AccountVerificationToken.objects.filter(user=user, used_at__isnull=False).exists() and not AccountVerificationToken.objects.filter(
+        user=user, used_at__isnull=True, expires_at__gt=timezone.now(),
+    ).exists()
+
+
+def _send_password_reset(user):
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
+    token = PasswordResetToken.objects.create(user=user, expires_at=timezone.now() + timedelta(hours=1))
+    base = getattr(settings, "FRONTEND_SITE_URL", "").rstrip("/")
+    link = f"{base}/en/reset-password?token={token.token}" if base else f"/en/reset-password?token={token.token}"
+    send_mail(
+        "Reset your ListAcrossEU password",
+        f"Reset your password by opening this link:\n\n{link}\n\nThis link expires in 1 hour.",
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
         fail_silently=False,
@@ -367,6 +407,13 @@ def _website_draft(business):
         draft = _normalize_website_languages(draft)
         draft.setdefault("page_title", hero.get("title") or business.name)
         draft.setdefault("template_id", DEFAULT_WEBSITE_TEMPLATE)
+        draft.setdefault("template_variant", "variant-1")
+        draft.setdefault("social_links", {})
+        draft.setdefault("location", {"address": ", ".join(value for value in (business.address_line1 or business.address, business.city.name if business.city else "", business.country.name if business.country else "") if value), "latitude": business.latitude, "longitude": business.longitude, "map_enabled": True, "directions_enabled": True})
+        draft.setdefault("contact_form", {"enabled": True, "recipient_email": business.business_contact_email or ""})
+        hero.setdefault("slides", [{"enabled": True, "title": hero.get("title") or business.name, "tagline": hero.get("tagline") or "", "cta_label": hero.get("cta_label") or "Get in touch", "order": 0}])
+        sections["hero"] = hero
+        draft["sections"] = sections
         draft.setdefault("effects", {"reveal": False, "background_parallax": False})
         content = draft.get("content") if isinstance(draft.get("content"), dict) else _website_content_from_draft(business, draft)
         if not str(content.get("logo") or "").strip():
@@ -393,9 +440,21 @@ def _website_draft(business):
     if not isinstance(services, list):
         services = []
     gallery = business.premium_images if isinstance(business.premium_images, list) else []
+    city_name = business.city.name if business.city else ""
+    country_name = business.country.name if business.country else ""
+    category_name = business.category.name if business.category_id else ""
+    category_lower = category_name.lower()
+    offering_label = "Products" if any(word in category_lower for word in ("shop", "store", "retail", "boutique")) else "Services"
+    location_phrase = ", ".join(value for value in (city_name, country_name) if value)
+    safe_intro = f"Learn more about {business.name}{f' in {location_phrase}' if location_phrase else ''}."
+    starter_description = str(business.description or "").strip() or safe_intro
     draft = {
         "version": 1,
         "template_id": DEFAULT_WEBSITE_TEMPLATE,
+        "template_variant": "variant-1",
+        "social_links": {"whatsapp": business.whatsapp_number if business.whatsapp_number else ""},
+        "location": {"address": ", ".join(value for value in (business.address_line1 or business.address, business.city.name if business.city else "", business.country.name if business.country else "") if value), "latitude": business.latitude, "longitude": business.longitude, "map_enabled": True, "directions_enabled": True},
+        "contact_form": {"enabled": True, "recipient_email": business.business_contact_email or ""},
         "status": "draft",
         "layout_mode": "one_page",
         "page_title": business.name,
@@ -420,11 +479,11 @@ def _website_draft(business):
             "visibility": {field: True for field in WEBSITE_CONTACT_VISIBILITY_FIELDS},
         },
         "sections": {
-            "hero": {"enabled": True, "title": business.name, "tagline": business.description, "cta_label": "Get in touch", "image": identity["background"] or business.image_url or ""},
+            "hero": {"enabled": True, "title": business.name, "tagline": str(business.description or "").strip() or safe_intro, "cta_label": "Get in touch", "image": identity["background"] or business.image_url or "", "slides": [{"enabled": True, "title": business.name, "tagline": str(business.description or "").strip() or safe_intro, "cta_label": "Get in touch", "order": 0}]},
             # Keep empty service slots private to the dashboard preview until the
             # owner supplies real service content.
-            "services": {"enabled": True, "eyebrow": "What we offer", "title": "Services / Products", "items": services + [{"private_placeholder": True} for _ in range(3)]},
-            "about": {"enabled": bool(business.description), "eyebrow": "About", "title": "About", "intro": "", "text": business.description, "image": ""},
+            "services": {"enabled": True, "eyebrow": "What we offer", "title": f"{offering_label} from {business.name}", "items": services + [{"private_placeholder": True} for _ in range(3)]},
+            "about": {"enabled": True, "eyebrow": "About", "title": f"Learn more about {business.name}", "intro": safe_intro, "text": starter_description, "image": ""},
             "why_choose": {"enabled": False, "title": "Why choose us", "text": ""},
             "gallery": {"enabled": bool(gallery), "items": gallery},
             "opening_hours": {"enabled": bool(_website_opening_hours_from_business(business)), "title": "Opening Hours", "items": _website_opening_hours_from_business(business)},
@@ -433,7 +492,7 @@ def _website_draft(business):
                 "enabled": True,
                 "location_label": "Location",
                 "location_title": "Find the business",
-                "location_intro": "",
+                "location_intro": f"Contact {business.name}{f' in {location_phrase}' if location_phrase else ''}.",
                 "address": business.address_line1 or business.address,
                 "city": business.city.name if business.city else "",
                 "region": dashboard.get("region", ""),
@@ -476,6 +535,7 @@ class DashboardAuthView(APIView):
         return Response({
             "authenticated": request.user.is_authenticated,
             "csrfToken": get_token(request),
+            "password_setup_required": bool(request.user.is_authenticated and not request.user.has_usable_password()),
             "user": {"username": request.user.username, "email": request.user.email} if request.user.is_authenticated else None,
         })
 
@@ -567,7 +627,50 @@ class AccountVerificationView(APIView):
         authenticated = not user.has_usable_password()
         if authenticated:
             login(request, user)
-        return Response({"verified": True, "authenticated": authenticated, "email": user.email, "business_id": record.claim.listing_id if record.claim and record.claim.listing_id else None})
+        return Response({"verified": True, "authenticated": authenticated, "password_setup_required": not user.has_usable_password(), "email": user.email, "business_id": record.claim.listing_id if record.claim and record.claim.listing_id else None})
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = str(request.data.get("email") or "").strip().lower()
+        user = get_user_model().objects.filter(email__iexact=email).first()
+        if user and _verified_account(user):
+            try:
+                _send_password_reset(user)
+            except Exception:
+                # Keep account enumeration protection and avoid exposing mail configuration.
+                pass
+        return Response({"detail": "If an account exists for this email, we have sent instructions."})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token = str(request.data.get("token") or "").strip()
+        new_password = str(request.data.get("new_password") or "")
+        if new_password != str(request.data.get("confirm_password") or ""):
+            return Response({"detail": "The passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+        record = PasswordResetToken.objects.filter(
+            token=token, used_at__isnull=True, expires_at__gt=timezone.now(), user__is_active=True,
+        ).select_related("user").first()
+        if not record or not _verified_account(record.user):
+            return Response({"detail": "This password reset link is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new_password, record.user)
+        except ValidationError as error:
+            return Response({"detail": " ".join(error.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            locked = PasswordResetToken.objects.select_for_update().filter(pk=record.pk, used_at__isnull=True, expires_at__gt=timezone.now()).select_related("user").first()
+            if not locked or not _verified_account(locked.user):
+                return Response({"detail": "This password reset link is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
+            locked.user.set_password(new_password)
+            locked.user.save(update_fields=["password"])
+            locked.used_at = timezone.now()
+            locked.save(update_fields=["used_at"])
+        return Response({"success": True})
 
 
 class AccountVerificationResendView(APIView):
@@ -617,13 +720,23 @@ class CreateBusinessView(APIView):
         if city.country_id != country.id:
             return Response({"detail": "Choose a city from the selected country."}, status=status.HTTP_400_BAD_REQUEST)
 
-        duplicates = Business.objects.filter(name__iexact=str(data["name"]).strip(), city=city, country=country).select_related("city", "country")
-        if duplicates.exists():
-            return Response({"detail": "A likely matching business already exists.", "duplicates": [{"id": item.id, "name": item.name, "canonical_path": item.get_canonical_path("en")} for item in duplicates[:5]]}, status=status.HTTP_409_CONFLICT)
+        submitted_name = _normalized_business_name(data["name"])
+        submitted_domain = _website_domain(data.get("website"))
+        candidates = Business.objects.filter(city=city, country=country).select_related("city", "country")
+        duplicates = [
+            item for item in candidates
+            if _normalized_business_name(item.name) == submitted_name
+            or (submitted_domain and _website_domain(item.website) == submitted_domain)
+        ]
+        if duplicates:
+            return Response({"detail": "A likely matching business already exists.", "duplicates": [{"id": item.id, "name": item.name, "slug": item.slug, "canonical_path": f"/en/claim?business={item.id}&slug={item.slug}", "listing_path": item.get_canonical_path("en")} for item in duplicates[:5]]}, status=status.HTTP_409_CONFLICT)
 
         owner_email = (request.user.email if request.user.is_authenticated else str(data.get("email") or data.get("contact_email") or "").strip().lower())
         if not owner_email:
             return Response({"detail": "An email address is required so you can manage the listing."}, status=status.HTTP_400_BAD_REQUEST)
+        description = str(data.get("description") or "")
+        if len(description) > Business.DESCRIPTION_MAX_LENGTH:
+            return Response({"detail": f"Description must be {Business.DESCRIPTION_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
         website = str(data.get("website", "")).strip()
         if len(website) > Business.WEBSITE_MAX_LENGTH:
             return Response({"detail": f"Website URLs must be {Business.WEBSITE_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
@@ -638,9 +751,10 @@ class CreateBusinessView(APIView):
             name=str(data["name"]).strip(), category=category, city=city, country=country,
             tier="claimed" if request.user.is_authenticated else "free", source="owner_created", is_micro=True,
             is_published=False,
-            description=str(data["description"]).strip(),
+            description=description.strip(),
             phone=str(data.get("phone", "")).strip(), business_contact_email=str(data.get("contact_email") or data.get("email") or "").strip().lower(), website=website,
-            logo_url="" if logo_upload else str(data.get("logo_url", "")).strip(), address_line1=str(data.get("address", "")).strip(),
+            logo_url="" if logo_upload else str(data.get("logo_url", "")).strip(), address=str(data.get("address", "")).strip(), address_line1=str(data.get("address", "")).strip(),
+            postal_code=str(data.get("postal_code", "")).strip(),
         )
         if logo_upload:
             business.logo_file = logo_upload
@@ -698,7 +812,7 @@ def dashboard_payload(business, request):
     claimed = claimed_listing_container(business)
     draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else None
     if draft:
-        for field in ("name", "description", "address", "address_line1", "postal_code", "phone", "contact_email", "whatsapp_number", "website", "logo_url", "image_url", "background_image", "overlay_color", "overlay_opacity", "accent_color", "languages", "visibility"):
+        for field in ("name", "description", "address", "address_line1", "postal_code", "phone", "contact_email", "whatsapp_number", "website", "logo_url", "image_url", "background_image", "gallery_images", "overlay_color", "overlay_opacity", "accent_color", "languages", "visibility"):
             if field in draft:
                 data[field] = draft[field]
         data["region"] = draft.get("region", "")
@@ -721,11 +835,13 @@ def dashboard_payload(business, request):
         "email": dashboard.get("email", ""),
         "visibility": data.get("visibility", dashboard.get("visibility", {})),
         "claim_status": claim.status if claim else "pending",
+        "password_setup_required": not request.user.has_usable_password(),
         "accent_color": business.accent_color or "#2563EB",
         "contact_email": data.get("contact_email", business.business_contact_email),
         "whatsapp_number": data.get("whatsapp_number", business.whatsapp_number),
         "languages": data.get("languages", business.spoken_languages or []),
         "background_image": data.get("background_image", ""),
+        "gallery_images": data.get("gallery_images", []),
         "overlay_color": data.get("overlay_color", "#0F172A"),
         "overlay_opacity": data.get("overlay_opacity", 0.72),
     })
@@ -791,6 +907,8 @@ class DashboardBusinessDetailView(APIView):
                     value = request.data[field] or ""
                     if field == "website" and len(str(value)) > Business.WEBSITE_MAX_LENGTH:
                         return Response({"detail": f"Website URLs must be {Business.WEBSITE_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
+                    if field == "description" and len(str(value)) > Business.DESCRIPTION_MAX_LENGTH:
+                        return Response({"detail": f"Description must be {Business.DESCRIPTION_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
                     setattr(business, field, value)
                 else:
                     dashboard[field] = request.data[field] or ""
@@ -838,6 +956,8 @@ class DashboardClaimedListingDraftView(APIView):
         draft = normalize_claimed_draft(business, request.data)
         if len(draft["website"]) > Business.WEBSITE_MAX_LENGTH:
             return Response({"detail": f"Website URLs must be {Business.WEBSITE_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(draft["description"]) > Business.DESCRIPTION_MAX_LENGTH:
+            return Response({"detail": f"Description must be {Business.DESCRIPTION_MAX_LENGTH} characters or fewer."}, status=status.HTTP_400_BAD_REQUEST)
         selected_category = Category.objects.filter(
             pk=draft.get("category_id"), is_public=True,
         ).exclude(slug="uncategorized").first() if draft.get("category_id") else None
@@ -980,12 +1100,77 @@ class DashboardClaimedListingBackgroundView(APIView):
         return Response(dashboard_payload(business, request))
 
 
+class DashboardClaimedListingGalleryView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    max_image_bytes = 10 * 1024 * 1024
+
+    def get_business(self, request, business_id):
+        return _verified_business(request, business_id)
+
+    @staticmethod
+    def _slot(request):
+        try:
+            slot = int(request.data.get("slot", request.query_params.get("slot", -1)))
+        except (TypeError, ValueError):
+            slot = -1
+        return slot if 0 <= slot < 4 else None
+
+    @staticmethod
+    def _delete_media_url(value):
+        parsed = urlparse(str(value or ""))
+        path = parsed.path or str(value or "")
+        media_url = str(settings.MEDIA_URL or "/media/")
+        if path.startswith(media_url):
+            default_storage.delete(path[len(media_url):].lstrip("/"))
+
+    def post(self, request, business_id):
+        business = self.get_business(request, business_id)
+        slot = self._slot(request)
+        upload = request.FILES.get("image")
+        if slot is None:
+            return Response({"detail": "Choose a gallery position from 1 to 4."}, status=status.HTTP_400_BAD_REQUEST)
+        if not upload:
+            return Response({"detail": "Choose a business photo to upload."}, status=status.HTTP_400_BAD_REQUEST)
+        if upload.size > self.max_image_bytes:
+            return Response({"detail": "Business photos must be 10 MB or smaller."}, status=status.HTTP_400_BAD_REQUEST)
+        if upload.content_type not in {"image/png", "image/jpeg", "image/webp"}:
+            return Response({"detail": "Upload a PNG, JPEG, or WebP image."}, status=status.HTTP_400_BAD_REQUEST)
+        claimed = claimed_listing_container(business)
+        draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else normalize_claimed_draft(business, {})
+        gallery = list(draft.get("gallery_images", [])) if isinstance(draft.get("gallery_images"), list) else []
+        gallery = (gallery + [""] * 4)[:4]
+        self._delete_media_url(gallery[slot])
+        stored = default_storage.save(f"claimed_listing_gallery/{business.id}/{uuid.uuid4().hex}_{upload.name}", upload)
+        gallery[slot] = request.build_absolute_uri(default_storage.url(stored))
+        draft["gallery_images"] = gallery
+        save_claimed_draft(business, draft)
+        return Response(dashboard_payload(business, request))
+
+    def delete(self, request, business_id):
+        business = self.get_business(request, business_id)
+        slot = self._slot(request)
+        if slot is None:
+            return Response({"detail": "Choose a gallery position from 1 to 4."}, status=status.HTTP_400_BAD_REQUEST)
+        claimed = claimed_listing_container(business)
+        draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else normalize_claimed_draft(business, {})
+        gallery = list(draft.get("gallery_images", [])) if isinstance(draft.get("gallery_images"), list) else []
+        gallery = (gallery + [""] * 4)[:4]
+        self._delete_media_url(gallery[slot])
+        gallery[slot] = ""
+        draft["gallery_images"] = gallery
+        save_claimed_draft(business, draft)
+        return Response(dashboard_payload(business, request))
+
 class DashboardPasswordChangeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         current = request.data.get("current_password", "")
         new_password = request.data.get("new_password", "")
+        confirm_password = request.data.get("confirm_password")
+        if confirm_password is not None and new_password != confirm_password:
+            return Response({"detail": "The passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
         if request.user.has_usable_password() and not request.user.check_password(current):
             return Response({"detail": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -1030,6 +1215,8 @@ class DashboardWebsiteView(APIView):
         draft = _website_draft(business)
         if request.data.get("template_id") in {"editorial-v1", "classic-business", "service-pro"}:
             draft["template_id"] = request.data["template_id"]
+        if request.data.get("template_variant") in {"variant-1", "variant-2"}:
+            draft["template_variant"] = request.data["template_variant"]
         for key in ("page_title", "target_location", "target_city", "target_region", "target_country", "service_area"):
             if key in request.data:
                 value = str(request.data.get(key) or "").strip()
@@ -1056,6 +1243,8 @@ class DashboardWebsiteView(APIView):
         draft = _website_draft(business)
         if request.data.get("template_id") in {"editorial-v1", "classic-business", "service-pro"}:
             draft["template_id"] = request.data["template_id"]
+        if request.data.get("template_variant") in {"variant-1", "variant-2"}:
+            draft["template_variant"] = request.data["template_variant"]
         for key in ("page_title", "target_location", "target_city", "target_region", "target_country", "service_area"):
             if key in request.data:
                 value = str(request.data.get(key) or "").strip()
@@ -1070,6 +1259,45 @@ class DashboardWebsiteView(APIView):
                 if key in request.data["effects"]:
                     effects[key] = bool(request.data["effects"][key])
             draft["effects"] = effects
+        if isinstance(request.data.get("social_links"), dict):
+            social = dict(draft.get("social_links", {})) if isinstance(draft.get("social_links"), dict) else {}
+            for key in ("facebook", "instagram", "linkedin", "tiktok", "youtube", "x", "whatsapp"):
+                if key in request.data["social_links"]:
+                    value = str(request.data["social_links"].get(key) or "").strip()
+                    if value and not (value.startswith("https://") or value.startswith("http://")):
+                        value = ""
+                    social[key] = value
+            draft["social_links"] = social
+        if isinstance(request.data.get("location"), dict):
+            location = dict(draft.get("location", {})) if isinstance(draft.get("location"), dict) else {}
+            incoming_location = request.data["location"]
+            for key in ("address",):
+                if key in incoming_location:
+                    location[key] = str(incoming_location.get(key) or "").strip()[:500]
+            for key in ("latitude", "longitude"):
+                if key in incoming_location:
+                    try:
+                        location[key] = float(incoming_location[key]) if incoming_location[key] not in (None, "") else None
+                    except (TypeError, ValueError):
+                        pass
+            for key in ("map_enabled", "directions_enabled"):
+                if key in incoming_location:
+                    location[key] = bool(incoming_location[key])
+            draft["location"] = location
+        if isinstance(request.data.get("contact_form"), dict):
+            form_config = dict(draft.get("contact_form", {})) if isinstance(draft.get("contact_form"), dict) else {}
+            incoming_form = request.data["contact_form"]
+            if "enabled" in incoming_form:
+                form_config["enabled"] = bool(incoming_form["enabled"])
+            if "recipient_email" in incoming_form:
+                recipient = str(incoming_form.get("recipient_email") or "").strip()[:254]
+                if recipient:
+                    try:
+                        validate_email(recipient)
+                    except ValidationError:
+                        return Response({"detail": "Enter a valid contact form recipient email."}, status=status.HTTP_400_BAD_REQUEST)
+                form_config["recipient_email"] = recipient
+            draft["contact_form"] = form_config
         if isinstance(request.data.get("theme"), dict):
             theme = dict(draft.get("theme", {}))
             for key in ("primary", "dark"):

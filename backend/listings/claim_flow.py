@@ -3,14 +3,14 @@ from copy import deepcopy
 
 DEFAULT_VISIBILITY = {
     "address": True, "phone": True, "whatsapp": False, "email": False,
-    "website": True, "languages": True, "description": True, "business_type": True,
+    "website": True, "city": True, "region": True, "country": True, "languages": True, "description": True, "business_type": True,
 }
-OVERLAY_COLORS = {"#0F172A", "#111827", "#1E3A5F", "#14532D"}
+OVERLAY_COLORS = {"#2563EB", "#16A34A", "#0F766E", "#7C3AED", "#EA580C", "#DC2626", "#0F172A", "#64748B"}
 
 
 def _safe_opacity(value):
     try:
-        return max(0.45, min(0.9, float(value)))
+        return max(0, min(1, float(value)))
     except (TypeError, ValueError):
         return 0.72
 
@@ -23,7 +23,7 @@ def _safe_overlay(value):
 CLAIMED_LISTING_FIELDS = {
     "name", "business_type", "description", "address", "address_line1", "postal_code",
     "phone", "email", "contact_email", "whatsapp_number", "website", "owner_name", "languages", "logo_url", "image_url",
-    "background_image", "overlay_color", "overlay_opacity", "accent_color", "region", "category_id", "city_id", "category_suggestion", "visibility",
+    "background_image", "gallery_images", "overlay_color", "overlay_opacity", "accent_color", "region", "category_id", "city_id", "category_suggestion", "visibility",
 }
 
 
@@ -36,6 +36,10 @@ def claimed_listing_container(business):
 def normalize_claimed_draft(business, payload):
     payload = payload if isinstance(payload, dict) else {}
     dashboard = (business.premium_sidebar or {}).get("_dashboard", {}) if isinstance(business.premium_sidebar, dict) else {}
+    existing_draft = claimed_listing_container(business).get("draft", {})
+    existing_gallery = existing_draft.get("gallery_images", []) if isinstance(existing_draft, dict) else []
+    gallery_value = payload.get("gallery_images", existing_gallery)
+    gallery_images = [str(item).strip() for item in gallery_value if str(item).strip()][:4] if isinstance(gallery_value, list) else []
     stored_background = business.claimed_background_file.url if business.claimed_background_file else ""
     draft = {
         "name": str(payload.get("name") or business.name).strip(),
@@ -56,6 +60,7 @@ def normalize_claimed_draft(business, payload):
         # A claimed-listing upload is more specific than the legacy business
         # image and must remain authoritative when an editor draft is saved.
         "background_image": str(stored_background or payload.get("background_image") or business.image_url or "").strip(),
+        "gallery_images": gallery_images,
         "overlay_color": _safe_overlay(payload.get("overlay_color")),
         "overlay_opacity": _safe_opacity(payload.get("overlay_opacity", 0.72)),
         "accent_color": str(payload.get("accent_color") or business.accent_color or "#2563EB").strip().upper(),

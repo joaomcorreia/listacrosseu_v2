@@ -17,7 +17,7 @@ const GLOBAL: SidebarContent = {
   body: 'Browse businesses, list your own for free, and explore the generated website option after claiming a listing.',
   links: [
     ['List Your Business Free', '/list-your-business'],
-    [GENERATED_WEBSITE_PRODUCT.cta, '/list-your-business?next=generated-website'],
+    [GENERATED_WEBSITE_PRODUCT.cta, '/pricing'],
     ['Pricing', '/pricing'],
     ['Browse businesses', '/search'],
   ],

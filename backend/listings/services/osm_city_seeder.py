@@ -133,6 +133,43 @@ def normalize_text(value: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", " ", normalized.lower()).strip()
 
 
+MOJIBAKE_MARKERS = ("Ã", "Â", "â€", "â€™", "â€œ", "â€“", "â€¦", "ð", "ï¿½", "�")
+
+
+def repair_mojibake(value: str | None) -> str:
+    """Repair detectable UTF-8 text decoded as Latin-1/CP1252.
+
+    Only conversions that remove corruption markers are accepted. Replacement
+    characters are not guessed or altered.
+    """
+    if not isinstance(value, str) or not any(marker in value for marker in MOJIBAKE_MARKERS):
+        return value or ""
+    def corruption_score(text: str) -> int:
+        score = sum(text.count(marker) for marker in MOJIBAKE_MARKERS if marker != "Â")
+        # A standalone Â can be valid in names such as Ângelo. In mojibake it
+        # is normally followed by punctuation/control text (for example Â´).
+        score += len(re.findall(r"Â(?=[^A-Za-zÀ-ÿ\s])", text))
+        return score
+
+    current = value
+    for _ in range(2):
+        if "�" in current:
+            break
+        candidates = []
+        for encoding in ("latin-1", "cp1252"):
+            try:
+                candidates.append(current.encode(encoding).decode("utf-8"))
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                continue
+        if not candidates:
+            break
+        candidate = min(candidates, key=corruption_score)
+        if corruption_score(current) <= corruption_score(candidate):
+            break
+        current = candidate
+    return current
+
+
 def normalize_phone(value: str | None) -> str:
     return re.sub(r"\D", "", value or "")
 

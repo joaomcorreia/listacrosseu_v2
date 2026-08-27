@@ -3,11 +3,12 @@ import os
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from listings.models import AccountVerificationToken, Business, BusinessClaimRequest, Category, City, Country
+from listings.models import AccountVerificationToken, Business, BusinessClaimRequest, Category, City, Country, PasswordResetToken
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
@@ -44,6 +45,48 @@ class FreshLoginTests(TestCase):
         user.save(update_fields=["is_active"])
         disabled = self.client.post("/api/dashboard/auth/", {"email": user.email, "password": "safe-password-123"}, format="json")
         self.assertEqual(disabled.status_code, 401)
+
+    def test_passwordless_verified_owner_can_recover_and_login(self):
+        country = Country.objects.create(name="Recovery Country", code="RC", slug="recovery-country")
+        city = City.objects.create(country=country, name="Recovery City", slug="recovery-city")
+        business = Business.objects.create(name="Recovery Business", country=country, city=city)
+        user = get_user_model().objects.create_user(username="recovery@example.test", email="recovery@example.test", password=None, is_active=True)
+        claim = BusinessClaimRequest.objects.create(
+            listing=business, name="Recovery Owner", email=user.email, business_name=business.name,
+            business_address="Main Street", business_post_code="1000", status="verified",
+        )
+        AccountVerificationToken.objects.create(user=user, claim=claim, expires_at=timezone.now() + timedelta(hours=1), used_at=timezone.now())
+        requested = self.client.post("/api/account/password-reset/", {"email": user.email}, format="json")
+        self.assertEqual(requested.status_code, 200)
+        self.assertEqual(requested.data["detail"], "If an account exists for this email, we have sent instructions.")
+        token = PasswordResetToken.objects.get(user=user)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(str(token.token), mail.outbox[0].body)
+        self.assertEqual(get_user_model().objects.filter(email=user.email).count(), 1)
+        reset = self.client.post("/api/account/password-reset/confirm/", {"token": str(token.token), "new_password": "safe-password-123", "confirm_password": "safe-password-123"}, format="json")
+        self.assertEqual(reset.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.has_usable_password())
+        self.assertEqual(self.client.post("/api/dashboard/auth/", {"email": user.email, "password": "safe-password-123"}, format="json").status_code, 200)
+        self.assertEqual(self.client.post("/api/account/password-reset/confirm/", {"token": str(token.token), "new_password": "another-password-123", "confirm_password": "another-password-123"}, format="json").status_code, 400)
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, "verified")
+
+    def test_password_reset_does_not_reveal_unverified_account(self):
+        user = get_user_model().objects.create_user(username="unverified-recovery@example.test", email="unverified-recovery@example.test", password=None, is_active=True)
+        AccountVerificationToken.objects.create(user=user, expires_at=timezone.now() + timedelta(hours=1))
+        response = self.client.post("/api/account/password-reset/", {"email": user.email}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(PasswordResetToken.objects.filter(user=user).exists())
+
+    def test_passworded_verified_account_can_use_recovery(self):
+        user = get_user_model().objects.create_user(username="normal-recovery@example.test", email="normal-recovery@example.test", password="old-password-123", is_active=True)
+        AccountVerificationToken.objects.create(user=user, expires_at=timezone.now() + timedelta(hours=1), used_at=timezone.now())
+        self.assertEqual(self.client.post("/api/account/password-reset/", {"email": user.email}, format="json").status_code, 200)
+        token = PasswordResetToken.objects.get(user=user)
+        response = self.client.post("/api/account/password-reset/confirm/", {"token": str(token.token), "new_password": "new-password-123", "confirm_password": "new-password-123"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.post("/api/dashboard/auth/", {"email": user.email, "password": "new-password-123"}, format="json").status_code, 200)
 
     def test_signup_logout_and_fresh_login_work_before_email_confirmation(self):
         with patch("listings.api.dashboard.send_mail"):

@@ -78,15 +78,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const { business } = result;
-  const title = `${business.name} in ${business.city?.name || business.country.name} | ListAcrossEU`;
+  const title = `${business.name} | ListAcross EU`;
   
   let description: string;
   if (business.tier === "free") {
-    description = `${business.name} - ${business.category?.name || "Business"} in ${business.city?.name || business.country.name}. Find contact details on ListAcrossEU.`;
+      description = `${business.name} - ${business.category?.name || "Business"}${business.city?.name || business.country?.name ? ` in ${business.city?.name || business.country?.name}` : ""}. Find contact details on ListAcrossEU.`;
   } else {
     description = business.description 
       ? business.description.slice(0, 160) + (business.description.length > 160 ? "..." : "")
-      : `${business.name} - ${business.category?.name || "Business"} in ${business.city?.name || business.country.name}. Find contact details on ListAcrossEU.`;
+      : `${business.name} - ${business.category?.name || "Business"}${business.city?.name || business.country?.name ? ` in ${business.city?.name || business.country?.name}` : ""}. Find contact details on ListAcrossEU.`;
   }
 
   const canonicalPath = getBusinessCanonicalPath(business, lang);
@@ -150,7 +150,7 @@ export default async function LocationBusinessPage({ params }: Props) {
       "@type": "PostalAddress",
       streetAddress: business.address_line1 || business.address,
       addressLocality: business.city?.name,
-      addressCountry: business.country.name,
+      ...(business.country?.name && { addressCountry: business.country.name }),
       postalCode: business.postal_code,
     } : undefined,
     telephone: business.phone || undefined,

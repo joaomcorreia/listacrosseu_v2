@@ -242,6 +242,7 @@ class BusinessSearchView(APIView):
         town = (request.query_params.get("town") or "").strip()
         category = (request.query_params.get("category") or "").strip()
         tier_filter = (request.query_params.get("tier") or "").strip()
+        exclude_ids = [int(value) for value in request.query_params.getlist("exclude_ids") if value.isdigit()]
         is_micro = (request.query_params.get("is_micro") or "").strip()
         try:
             limit = int(request.query_params.get("limit", 20))
@@ -394,6 +395,9 @@ class BusinessSearchView(APIView):
 
         if tier_filter in {"free", "claimed", "premium"}:
             qs = qs.filter(tier=tier_filter)
+
+        if exclude_ids:
+            qs = qs.exclude(pk__in=exclude_ids)
 
         # Micro business filter
         if is_micro:

@@ -24,7 +24,8 @@ function usableImageUrl(value?: string) {
 export function resolvePresentationStyle(listing: Pick<ClaimedListingViewData, 'accent_color' | 'overlay_color' | 'overlay_opacity' | 'background_image' | 'image_url'>) {
   const accent = /^#[0-9A-F]{6}$/i.test(listing.accent_color || '') ? listing.accent_color! : DEFAULT_ACCENT;
   const overlay = /^#[0-9A-F]{6}$/i.test(listing.overlay_color || '') ? listing.overlay_color! : DEFAULT_OVERLAY;
-  const overlayOpacity = Math.max(0.45, Math.min(0.9, Number(listing.overlay_opacity) || 0.72));
+  const rawOpacity = Number(listing.overlay_opacity);
+  const overlayOpacity = Number.isFinite(rawOpacity) ? Math.max(0, Math.min(1, rawOpacity)) : 0.72;
   const background = usableImageUrl(listing.background_image) || usableImageUrl(listing.image_url) || DEFAULT_BACKGROUND;
   return { accent, overlay, overlayOpacity, background };
 }

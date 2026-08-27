@@ -9,6 +9,7 @@ import SpokenLanguagePicker from '@/components/business/SpokenLanguagePicker';
 
 type Option = { id: number; name: string; country?: { id: number; name: string } };
 type FormData = { name: string; category_id: string; category_suggestion: string; business_type: string; city_id: string; country_id: string; description: string; region: string; phone: string; contact_email: string; whatsapp_number: string; languages: string[]; website: string; logo_url: string; background_image: string; logo_file?: File | string; background_file?: File | string; address: string; postal_code: string; accent_color: string; overlay_color: string; overlay_opacity: number; visibility: Record<string, boolean> };
+const DESCRIPTION_MAX_LENGTH = 500;
 const emptyForm: FormData = { name: '', category_id: '', category_suggestion: '', business_type: '', city_id: '', country_id: '', description: '', region: '', phone: '', contact_email: '', whatsapp_number: '', languages: [], website: '', logo_url: '', background_image: '', address: '', postal_code: '', accent_color: '#2563EB', overlay_color: '#0F172A', overlay_opacity: 0.72, visibility: { address: true, phone: true, whatsapp: false, email: false, website: true, languages: true, description: true, business_type: true } };
 const STORAGE_KEY = 'listacrosseu-new-business-draft';
 
@@ -24,7 +25,7 @@ export default function ListYourBusinessPageClient({ lang }: { lang: string }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [duplicates, setDuplicates] = useState<Array<{ name: string; canonical_path: string }>>([]);
+  const [duplicates, setDuplicates] = useState<Array<{ id: number; name: string; slug: string; canonical_path: string }>>([]);
   const [suggestingCategory, setSuggestingCategory] = useState(false);
   const logoObjectUrl = useRef('');
   const backgroundObjectUrl = useRef('');
@@ -58,6 +59,7 @@ export default function ListYourBusinessPageClient({ lang }: { lang: string }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault(); setSubmitting(true); setError(''); setDuplicates([]); sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...form, logo_file: undefined, background_file: undefined }));
+    if (form.description.length > DESCRIPTION_MAX_LENGTH) { setError(`Description must be ${DESCRIPTION_MAX_LENGTH} characters or fewer.`); setSubmitting(false); return; }
     const payload = { ...form, email: form.contact_email, category_id: suggestingCategory ? '' : form.category_id, category_suggestion: suggestingCategory ? form.category_suggestion : '' };
     const body = new FormData();
     Object.entries(payload).forEach(([key, value]) => { if (key === 'logo_file' || key === 'background_file' || value instanceof File) return; body.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')); });

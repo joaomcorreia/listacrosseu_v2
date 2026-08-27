@@ -14,7 +14,8 @@ from .geo_views import (
 urlpatterns = [
     # City endpoints
     path("cities/", CitiesWithBusinessesView.as_view(), name="cities-with-businesses"),
-    path("cities/<slug:city_slug>/", CityDetailView.as_view(), name="city-detail"),
+    # CityDetailView uses the standard RetrieveAPIView ``slug`` lookup.
+    path("cities/<slug:slug>/", CityDetailView.as_view(), name="city-detail"),
     path("cities/<slug:city_slug>/businesses/", CityBusinessesView.as_view(), name="city-businesses"),
     
     # Town endpoints

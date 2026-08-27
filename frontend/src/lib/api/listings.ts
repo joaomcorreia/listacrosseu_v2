@@ -52,6 +52,7 @@ export interface Business {
   slug: string;
   tier: 'free' | 'claimed' | 'premium';
   is_published?: boolean;
+  claimed_listing_published?: boolean;
   visibility_scope?: 'country' | 'eu';
   visibility_country?: string;
   country: Country;
@@ -100,6 +101,7 @@ export interface SearchFilters {
   category?: string;
   is_micro?: boolean;
   tier?: string;
+  exclude_ids?: number[];
   limit?: number;
   offset?: number;
 }
@@ -115,6 +117,7 @@ export async function fetchBusinesses(filters: SearchFilters = {}): Promise<Busi
   if (filters.town) params.append('town', filters.town);
   if (filters.category) params.append('category', filters.category);
   if (filters.tier) params.append('tier', filters.tier);
+  filters.exclude_ids?.forEach((id) => params.append('exclude_ids', String(id)));
   if (filters.is_micro !== undefined) params.append('is_micro', filters.is_micro.toString());
   if (filters.limit) params.append('limit', filters.limit.toString());
   if (filters.offset) params.append('offset', filters.offset.toString());

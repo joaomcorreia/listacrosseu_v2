@@ -167,6 +167,10 @@ export default function BusinessCard({ business, onClaim, lang }: BusinessCardPr
   };
 
   const handleViewDetailsClick = () => {
+    if (tier === "claimed") {
+      router.push(getBusinessCanonicalPath(business, effectiveLang));
+      return;
+    }
     if (tier === "premium") {
       const currentLang = lang || "en";
       window.open(`/${currentLang}/premium-preview`, "_blank", "noopener,noreferrer");

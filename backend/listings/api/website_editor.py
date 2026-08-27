@@ -1,5 +1,10 @@
 from django.db import transaction
 from copy import deepcopy
+from django.conf import settings
+from django.core.cache import cache
+from django.core.mail import EmailMessage
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.core import signing
 from django.utils import timezone
@@ -114,9 +119,63 @@ class PublicGeneratedWebsiteView(APIView):
                 "attribution_visibility_unlocked": _website_attribution_eligible(business),
             },
         }
+        if isinstance(response_draft.get("contact_form"), dict):
+            response_draft["contact_form"] = {"enabled": bool(response_draft["contact_form"].get("enabled", True))}
         return Response({
             "business_id": business.id,
             "business_slug": business.slug,
             "business_name": business.name,
             "website": response_draft,
         })
+
+
+class PublicGeneratedWebsiteContactView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, slug):
+        preview_token = request.query_params.get("preview_token", "")
+        business = preview_business_from_token(preview_token, slug) if preview_token else None
+        if business is None:
+            for candidate in Business.objects.filter(tier="claimed").iterator():
+                website = (candidate.premium_sidebar or {}).get("_website")
+                snapshot = website.get("published_snapshot") if isinstance(website, dict) else None
+                if isinstance(snapshot, dict) and website.get("published", True) and snapshot.get("website_slug") == slug:
+                    business = candidate
+                    break
+        if business is None:
+            return Response({"detail": "This Generated Website is not available."}, status=404)
+        draft = (business.premium_sidebar or {}).get("_website") or {}
+        snapshot = draft.get("published_snapshot") if isinstance(draft.get("published_snapshot"), dict) else None
+        source = draft if preview_token else (snapshot or {})
+        form_config = source.get("contact_form") if isinstance(source.get("contact_form"), dict) else {}
+        recipient = str(form_config.get("recipient_email") or "").strip()
+        if not form_config.get("enabled", True) or not recipient:
+            return Response({"detail": "The contact form is not currently available."}, status=404)
+        if str(request.data.get("website_url") or "").strip():
+            return Response({"detail": "Unable to send this message."}, status=400)
+        ip = request.META.get("REMOTE_ADDR", "unknown")
+        rate_key = f"generated-contact:{slug}:{ip}"
+        if not cache.add(rate_key, True, timeout=60):
+            return Response({"detail": "Please wait before sending another message."}, status=429)
+        name = str(request.data.get("name") or "").strip()[:120]
+        email = str(request.data.get("email") or "").strip()[:254]
+        phone = str(request.data.get("phone") or "").strip()[:80]
+        subject = str(request.data.get("subject") or "").strip()[:160]
+        message = str(request.data.get("message") or "").strip()[:5000]
+        if not name or not message or not email:
+            return Response({"detail": "Name, email and message are required."}, status=400)
+        try:
+            validate_email(email)
+            validate_email(recipient)
+        except ValidationError:
+            return Response({"detail": "Enter a valid email address."}, status=400)
+        body = "\n".join([
+            f"Website: {business.name}", f"Name: {name}", f"Email: {email}",
+            f"Phone: {phone or 'Not provided'}", f"Subject: {subject or 'Website contact'}", "", message,
+            f"\nOriginating page: /generated/{slug}/contact",
+        ])
+        try:
+            EmailMessage(subject or f"Website contact from {name}", body, settings.DEFAULT_FROM_EMAIL, [recipient], reply_to=[email]).send(fail_silently=False)
+        except Exception:
+            return Response({"detail": "Unable to send your message right now."}, status=503)
+        return Response({"detail": "Your message has been sent."})

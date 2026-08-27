@@ -104,6 +104,7 @@ class CategorySuggestion(models.Model):
 
 
 class Business(models.Model):
+    DESCRIPTION_MAX_LENGTH = 500
     WEBSITE_MAX_LENGTH = 1000
     # Listing tier choices
     LISTING_TIER_CHOICES = [
@@ -176,7 +177,7 @@ class Business(models.Model):
     business_contact_email = models.EmailField(blank=True, max_length=254)
     whatsapp_number = models.CharField(max_length=80, blank=True)
     spoken_languages = models.JSONField(default=list, blank=True)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, max_length=DESCRIPTION_MAX_LENGTH)
     keywords = models.JSONField(default=list, blank=True)  # Store as array of strings
     
     # Media fields for different tiers
@@ -296,6 +297,19 @@ class BusinessClaimRequest(models.Model):
 class AccountVerificationToken(models.Model):
     user = models.ForeignKey("auth.User", on_delete=models.CASCADE, related_name="account_verification_tokens")
     claim = models.ForeignKey(BusinessClaimRequest, on_delete=models.SET_NULL, null=True, blank=True, related_name="account_verification_tokens")
+    token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class PasswordResetToken(models.Model):
+    """Single-use recovery link for active, email-verified accounts."""
+
+    user = models.ForeignKey("auth.User", on_delete=models.CASCADE, related_name="password_reset_tokens")
     token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)

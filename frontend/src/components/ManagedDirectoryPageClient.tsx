@@ -95,7 +95,7 @@ export default function ManagedDirectoryPageClient({ lang, scope, slug, defaults
             {[
               ['1', 'Free Listing', 'Add your business to the public directory.'],
               ['2', 'Claim', 'Verify ownership and manage your listing.'],
-              ['3', 'Generated Website', `Try it with ${GENERATED_WEBSITE_PRODUCT.trial}, then ${GENERATED_WEBSITE_PRODUCT.price} if kept.`],
+              ['3', 'Generated Website', `Edit and preview before payment and publishing. Plans: ${GENERATED_WEBSITE_PRODUCT.priceOneLanguage} or ${GENERATED_WEBSITE_PRODUCT.priceFourLanguages}.`],
             ].map(([number, title, text]) => <article key={number} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="text-sm font-black text-blue-700">{number}</span><h3 className="mt-2 font-bold text-slate-900">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></article>)}
           </div>
           <p className="mt-5 text-sm text-slate-600">Custom domain options are coming next.</p>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { normalizeLang } from "@/lib/lang";
 import AdPlaceholder from "./ads/AdPlaceholder";
 import SidebarAdSlot from "./ads/SidebarAdSlot";
-import { GENERATED_WEBSITE_PRODUCT } from '@/lib/product-config';
 import { resolveSidebarContent, type SidebarContext } from '@/lib/sidebar-content';
 import { publicActionHref } from '@/lib/public-actions';
 
@@ -37,17 +36,15 @@ export default function Sidebar({
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900">{GENERATED_WEBSITE_PRODUCT.name}</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Create a simple business website and try it free before deciding whether to keep it.
-          </p>
-          <p className="mt-3 text-xs font-semibold text-slate-500">{GENERATED_WEBSITE_PRODUCT.price} after the trial</p>
-          <Link
-            href={publicActionHref(lang, 'TRY_GENERATED_WEBSITE')}
-            className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            {GENERATED_WEBSITE_PRODUCT.cta}
-          </Link>
+          <h2 className="text-lg font-bold text-slate-900">Claim Your Business</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Manage your public business information and keep your listing up to date.</p>
+          <Link href={`/${lang}/claim`} className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-slate-800">Claim Your Business</Link>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">How ListAcrossEU Works</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Learn how businesses are listed, discovered and claimed.</p>
+          <Link href={`/${lang}/how-it-works`} className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-slate-300 px-4 py-2.5 text-center text-sm font-semibold text-slate-800 transition hover:bg-slate-50">How it works</Link>
         </div>
 
         <nav aria-label="Directory links" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

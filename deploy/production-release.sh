@@ -6,8 +6,10 @@ DB=/var/www/listacross.eu/shared/db/db.sqlite3
 BACKUPS=/var/www/listacross.eu/backups
 BACKEND_SERVICE=listacrosseu-backend.service
 FRONTEND_SERVICE=listacrosseu-frontend.service
-RELEASE_REF="${1:?Usage: production-release.sh <git-ref-or-package> [--import]}"
+RELEASE_REF="${1:?Usage: production-release.sh <git-ref-or-package> [--migrate|--import]}"
+DO_MIGRATE=false
 DO_IMPORT=false
+[[ "${2:-}" == "--migrate" ]] && DO_MIGRATE=true
 [[ "${2:-}" == "--import" ]] && DO_IMPORT=true
 # Keep production migrations/checks/import guards pointed at the shared live
 # database; never fall back to a release-local SQLite file.
@@ -29,6 +31,7 @@ if [[ -f "$RELEASE_REF" ]]; then
   tar -xzf "$RELEASE_REF" -C "$release_dir"
   rsync -a --no-perms --no-owner --no-group --delete \
     --exclude 'backend/.env' --exclude 'backend/.env.*' \
+    --exclude 'backend/*.sqlite3' --exclude 'backend/*.sqlite3-*' \
     --exclude 'frontend/.env.local' --exclude 'frontend/.env.*' \
     --exclude 'backend/media/' --exclude 'backend/staticfiles/' \
     "$release_dir/" "$APP/"
@@ -52,9 +55,26 @@ grep -Eq '^NEXT_PUBLIC_ENABLE_PUBLIC_CLAIM_CTA=1([[:space:]]*#.*)?$' /etc/listac
 DATA_FILES=(
   backend/imports/review/osm-city-seed/combined/final-approved.json
 )
-/tmp/listacrosseu-release-venv/bin/python backend/manage.py import_reviewed_osm --country-code BE $(printf -- '--file %q ' "${DATA_FILES[@]}") --dry-run --settings=config.settings.production
+data_files_available=true
+for data_file in "${DATA_FILES[@]}"; do
+  if [[ ! -f "$data_file" ]]; then
+    data_files_available=false
+    break
+  fi
+done
 if $DO_IMPORT; then
+  if ! $data_files_available; then
+    echo "Cannot import: approved OSM dataset is not present in this package." >&2
+    exit 1
+  fi
+  /tmp/listacrosseu-release-venv/bin/python backend/manage.py import_reviewed_osm --country-code BE $(printf -- '--file %q ' "${DATA_FILES[@]}") --dry-run --settings=config.settings.production
+else
+  echo "Application-only release: skipping OSM dry-run and import."
+fi
+if $DO_MIGRATE || $DO_IMPORT; then
   /tmp/listacrosseu-release-venv/bin/python backend/manage.py migrate --noinput --settings=config.settings.production
+fi
+if $DO_IMPORT; then
   /tmp/listacrosseu-release-venv/bin/python backend/manage.py import_reviewed_osm --country-code BE $(printf -- '--file %q ' "${DATA_FILES[@]}") --confirm-import --settings=config.settings.production
 fi
 

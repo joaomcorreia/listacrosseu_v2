@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useParams } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { normalizeLang } from "@/lib/lang";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
@@ -12,6 +12,7 @@ import { debugLog, debugWarn } from "@/lib/debug";
 import { resolveBlogDetailTargetUrl } from "@/lib/blogRouting";
 import LanguageSelector from "@/components/LanguageSelector";
 import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
+import { PUBLIC_API_BASE_URL } from "@/lib/env.public";
 
 type LayoutProps = {
   children: ReactNode;
@@ -32,6 +33,16 @@ export default function Layout({
   const router = useRouter();
   const params = useParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${PUBLIC_API_BASE_URL}/api/dashboard/auth/`, { credentials: 'include' })
+      .then((response) => response.json())
+      .then((data) => { if (active) setAuthenticated(Boolean(data?.authenticated)); })
+      .catch(() => { if (active) setAuthenticated(false); });
+    return () => { active = false; };
+  }, []);
 
   // pathname example: "/en/search" or "/nl/blog/xyz"
   const segments = pathname.split("/").filter(Boolean); // ["en", "search"]
@@ -275,8 +286,8 @@ export default function Layout({
                   }
                 />
               </div>
-              <Link href={`/${currentLang}/login`} className="hidden rounded-md border border-blue-700 px-3 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-50 md:inline-flex">
-                Login
+              <Link href={authenticated ? `/${currentLang}/dashboard` : `/${currentLang}/login`} className="hidden rounded-md border border-blue-700 px-3 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-50 md:inline-flex">
+                {authenticated ? 'Dashboard' : 'Login'}
               </Link>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -348,7 +359,7 @@ export default function Layout({
               </Link>
               <Link href={`/${currentLang}/generated-business-website`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50">{t.nav.generatedWebsite || "Generated Website"} <span className="ml-2 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{t.nav.tryFree || "Try Free"}</span></Link>
               <Link href={`/${currentLang}/blog`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50">{t.nav.blog}</Link>
-              <Link href={`/${currentLang}/login`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-blue-800 hover:bg-blue-50">Login</Link>
+              <Link href={authenticated ? `/${currentLang}/dashboard` : `/${currentLang}/login`} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 rounded-md text-base font-medium text-blue-800 hover:bg-blue-50">{authenticated ? 'Dashboard' : 'Login'}</Link>
             </div>
           </div>
         </div>

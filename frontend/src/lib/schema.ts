@@ -95,7 +95,7 @@ export function generateBusinessSchema(business: any, lang: string) {
       {
         "@type": "City",
         name: business.city.name,
-        addressCountry: business.country?.name || "Unknown",
+        ...(business.country?.name && { addressCountry: business.country.name }),
       },
     ];
   } else if (business.country) {
@@ -108,6 +108,14 @@ export function generateBusinessSchema(business: any, lang: string) {
     ];
   }
 
+  const address = {
+    "@type": "PostalAddress",
+    ...(business.address_line1 && { streetAddress: business.address_line1 }),
+    ...(!business.address_line1 && business.address && { streetAddress: business.address }),
+    ...(business.city?.name && { addressLocality: business.city.name }),
+    ...(business.postal_code && { postalCode: business.postal_code }),
+    ...(business.country?.name && { addressCountry: business.country.name }),
+  };
   const schema: any = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -115,18 +123,12 @@ export function generateBusinessSchema(business: any, lang: string) {
     name: business.name,
     description:
       business.description ||
-      `${business.name} - ${business.category?.name || "Business"} in ${
-        business.city?.name || business.country?.name
+      `${business.name} - ${business.category?.name || "Business"}${
+        business.city?.name || business.country?.name ? ` in ${business.city?.name || business.country?.name}` : ""
       }`,
     url: business.website || businessUrl,
     image: business.image_url || business.logo_url,
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: business.address_line1 || business.address,
-      addressLocality: business.city?.name,
-      postalCode: business.postal_code,
-      addressCountry: business.country?.name,
-    },
+    ...(Object.keys(address).length > 1 && { address }),
   };
 
   if (areaServed.length > 0) {

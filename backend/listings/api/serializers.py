@@ -124,7 +124,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         published = public_claimed_presentation(instance)
         data["claimed_listing_published"] = bool(published)
         if published:
-            for field in ("name", "description", "address", "address_line1", "postal_code", "phone", "website", "logo_url", "image_url", "background_image", "business_type", "region", "contact_email", "whatsapp_number", "languages", "overlay_color", "overlay_opacity", "accent_color"):
+            for field in ("name", "description", "address", "address_line1", "postal_code", "phone", "website", "logo_url", "image_url", "background_image", "gallery_images", "business_type", "region", "contact_email", "whatsapp_number", "languages", "overlay_color", "overlay_opacity", "accent_color"):
                 if field in published:
                     data[field] = published[field]
         data["keywords"] = normalize_keywords(instance.keywords)
@@ -150,11 +150,13 @@ class BusinessSerializer(serializers.ModelSerializer):
             "website": True,
             "city": True,
             "region": True,
+            "country": True,
         }
         for field, default in defaults.items():
             if visibility.get(field, default) is False:
-                data[field] = None if field == "city" else ""
+                data[field] = None if field in {"city", "country"} else ""
         data["visibility"] = visibility
+        data["gallery_images"] = (published or {}).get("gallery_images", []) if published else []
         if visibility.get("address", True) is False:
             data["address"] = ""
             data["address_line1"] = ""

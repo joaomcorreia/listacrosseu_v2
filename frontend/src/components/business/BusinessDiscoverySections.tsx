@@ -46,7 +46,7 @@ function Group({ group, lang }: { group: DiscoveryGroup; lang: string }) {
   </section>;
 }
 
-export default function BusinessDiscoverySections({ discovery, lang, cityName, citySlug, countryName, countrySlug }: { discovery: BusinessDiscovery; lang: string; cityName?: string; citySlug?: string; countryName: string; countrySlug: string }) {
+export default function BusinessDiscoverySections({ discovery, lang, cityName, citySlug, countryName, countrySlug }: { discovery: BusinessDiscovery; lang: string; cityName?: string; citySlug?: string; countryName?: string; countrySlug?: string }) {
   const groups = [discovery.sameCategoryCity, ...discovery.cityGroups, discovery.sameCategoryCountry, ...discovery.countryGroups].filter((group): group is DiscoveryGroup => Boolean(group?.items.length));
   if (groups.length === 0) return null;
 
@@ -56,6 +56,6 @@ export default function BusinessDiscoverySections({ discovery, lang, cityName, c
       {groups.map((group) => <div key={group.key} className="rounded-lg border-2 border-slate-400 bg-slate-50 p-4 sm:p-5"><Group group={group} lang={lang} /></div>)}
     </div>
     {cityName && citySlug && <Link href={`/${lang}/cities/${citySlug}`} className="mt-8 inline-flex text-sm font-semibold text-blue-700 hover:underline">Explore all businesses in {cityName}</Link>}
-    {!cityName && <Link href={`/${lang}/countries/${countrySlug}`} className="mt-8 inline-flex text-sm font-semibold text-blue-700 hover:underline">Explore more businesses in {countryName}</Link>}
+    {!cityName && countryName && countrySlug && <Link href={`/${lang}/countries/${countrySlug}`} className="mt-8 inline-flex text-sm font-semibold text-blue-700 hover:underline">Explore more businesses in {countryName}</Link>}
   </section>;
 }

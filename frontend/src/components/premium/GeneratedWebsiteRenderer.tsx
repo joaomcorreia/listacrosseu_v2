@@ -1,9 +1,9 @@
 'use client';
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import GeneratedWebsiteTemplate from './GeneratedWebsiteTemplate';
-import { normalizeGeneratedWebsite, type GeneratedWebsite } from './generated-page-schema';
-import { resolveGeneratedTemplateId } from './generated-page-registry';
+import GeneratedWebsitePageRenderer from './GeneratedWebsitePageRenderer';
+import { normalizeGeneratedWebsite, type GeneratedWebsite, type GeneratedWebsitePage } from './generated-page-schema';
+import { resolveGeneratedTemplateId, resolveGeneratedTemplateVariant } from './generated-page-registry';
 
 class GeneratedWebsiteRenderBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -24,9 +24,9 @@ class GeneratedWebsiteRenderBoundary extends Component<{ children: ReactNode }, 
   }
 }
 
-export default function GeneratedWebsiteRenderer(props: { initial: GeneratedWebsite; businessId: string; lang: string; readOnly?: boolean; privatePreview?: boolean }) {
+export default function GeneratedWebsiteRenderer(props: { initial: GeneratedWebsite; businessId: string; lang: string; readOnly?: boolean; privatePreview?: boolean; activePage?: GeneratedWebsitePage }) {
   const initial = normalizeGeneratedWebsite(props.initial);
   const templateId = resolveGeneratedTemplateId(initial.template_id);
 
-  return <GeneratedWebsiteRenderBoundary><GeneratedWebsiteTemplate {...props} initial={{ ...initial, template_id: templateId }} /></GeneratedWebsiteRenderBoundary>;
+  return <GeneratedWebsiteRenderBoundary><GeneratedWebsitePageRenderer {...props} initial={{ ...initial, template_id: templateId, template_variant: resolveGeneratedTemplateVariant(initial.template_variant) }} /></GeneratedWebsiteRenderBoundary>;
 }

@@ -30,6 +30,8 @@ import DirectoryViewToggle, { type DirectoryView } from "@/components/DirectoryV
 import DirectoryBusinessList from "@/components/DirectoryBusinessList";
 import { detectVisitorCountry } from "@/lib/visitor-country";
 import { sanitizeSearchValue } from "@/lib/searchValues";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
+import { getRecommendationCategoryCandidates } from "@/lib/related-categories";
 
 type Option = { label: string; value: string };
 
@@ -48,6 +50,14 @@ const defaultUiText: UiTextResponse = {
   data: {},
   updated_at: "",
 };
+
+type RecommendationGroup = { key: 'city' | 'country' | 'europe'; title: string; businesses: Business[] };
+
+function SearchRecommendationCard({ business, lang }: { business: Business; lang: string }) {
+  const category = business.category?.name || 'Business';
+  const location = [business.city?.name, business.country?.name].filter(Boolean).join(', ');
+  return <Link href={getBusinessCanonicalPath(business, lang)} className="group flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="line-clamp-2 text-lg font-bold text-slate-900 group-hover:text-blue-700">{business.name}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{category}</p></div>{business.tier === 'claimed' && <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-800">Verified</span>}</div><p className="mt-2 text-sm text-slate-500">{location}</p>{business.description && <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{business.description}</p>}<span className="mt-auto pt-4 text-sm font-bold text-blue-700">View listing →</span></Link>;
+}
 
 export default function SearchPageClient() {
   const params = useParams();
@@ -83,6 +93,8 @@ export default function SearchPageClient() {
   const [discoveryCategories, setDiscoveryCategories] = useState<Category[]>([]);
   const [discoveryBusinesses, setDiscoveryBusinesses] = useState<Business[]>([]);
   const [discoveryLoading, setDiscoveryLoading] = useState(true);
+  const [recommendationGroups, setRecommendationGroups] = useState<RecommendationGroup[]>([]);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
 
   const hasActiveSearch = Boolean(q || location || country || city || category || isMicro);
 
@@ -192,6 +204,62 @@ export default function SearchPageClient() {
       cancelled = true;
     };
   }, [lang, hasActiveSearch]);
+
+  useEffect(() => {
+    if (!hasActiveSearch || businesses.length === 0) {
+      setRecommendationGroups([]);
+      return;
+    }
+    const source = businesses[0];
+    const categoryCandidates = getRecommendationCategoryCandidates(source.category);
+    const countrySlug = source.country?.slug || source.country_slug;
+    const citySlug = source.city?.slug || source.city_slug;
+    if (!categoryCandidates.length || !countrySlug || !citySlug) {
+      setRecommendationGroups([]);
+      return;
+    }
+    let cancelled = false;
+    setRecommendationLoading(true);
+    const primaryIds = businesses.map((business) => business.id);
+
+    async function loadLevel(filters: { country?: string; city?: string }, exclusions: number[]) {
+      const responses = await Promise.all(categoryCandidates.map((category) => fetchBusinesses({ ...filters, category, limit: 8, exclude_ids: exclusions })));
+      const seen = new Set<number>();
+      return responses.flatMap((response) => response.results).filter((business) => {
+        if (seen.has(business.id)) return false;
+        seen.add(business.id);
+        return true;
+      }).slice(0, 8);
+    }
+
+    async function loadRecommendations() {
+      try {
+        const cityResults = await loadLevel({ country: countrySlug, city: citySlug }, primaryIds);
+        const cityIds = cityResults.map((business) => business.id);
+        const countryResults = await loadLevel({ country: countrySlug }, [...primaryIds, ...cityIds]);
+        const countryIds = countryResults.map((business) => business.id);
+        const europeResults = await loadLevel({}, [...primaryIds, ...cityIds, ...countryIds]);
+        const seen = new Set(primaryIds);
+        const groups: RecommendationGroup[] = [];
+        const addGroup = (key: RecommendationGroup['key'], title: string, results: Business[]) => {
+          const unique = results.filter((business) => !seen.has(business.id));
+          unique.forEach((business) => seen.add(business.id));
+          if (unique.length) groups.push({ key, title, businesses: unique });
+        };
+        addGroup('city', `Similar businesses in ${source.city?.name || citySlug}`, cityResults);
+        addGroup('country', `More ${source.category?.name || 'similar'} businesses in ${source.country?.name || countrySlug}`, countryResults);
+        addGroup('europe', 'Explore similar businesses across Europe', europeResults);
+        if (!cancelled) setRecommendationGroups(groups);
+      } catch (recommendationError) {
+        console.error(recommendationError);
+        if (!cancelled) setRecommendationGroups([]);
+      } finally {
+        if (!cancelled) setRecommendationLoading(false);
+      }
+    }
+    loadRecommendations();
+    return () => { cancelled = true; };
+  }, [businesses, hasActiveSearch]);
 
   type SearchState = {
     q: string;
@@ -624,6 +692,13 @@ export default function SearchPageClient() {
             {t.forms.search.pagination.next}
           </button>
         </div>}
+
+        {hasActiveSearch && (recommendationLoading || recommendationGroups.length > 0) && (
+          <section className="mt-12 space-y-10" aria-label="Similar businesses">
+            {recommendationLoading && recommendationGroups.length === 0 && <p className="text-sm text-slate-500">Finding similar businesses...</p>}
+            {recommendationGroups.map((group) => <div key={group.key}><h2 className="text-2xl font-semibold text-slate-900">{group.title}</h2><div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">{group.businesses.map((business) => <SearchRecommendationCard key={business.id} business={business} lang={lang} />)}</div></div>)}
+          </section>
+        )}
         </div>
       </div>
     </div>

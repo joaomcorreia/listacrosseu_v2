@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { normalizeLang } from "@/lib/lang";
 import { useTranslations } from "@/i18n/translations";
@@ -19,9 +20,18 @@ import BlogPostsSlider from "@/components/blog/BlogPostsSlider";
 import DirectorySidebarLayout from "@/components/DirectorySidebarLayout";
 import Sidebar from "@/components/Sidebar";
 import { useDirectoryPageEditor } from "@/components/DirectoryPageEditor";
+import { getBusinessCanonicalPath } from "@/lib/businessUrls";
 
 interface CountryPageClientProps {
   countrySlug: string;
+}
+
+function VerifiedBusinessCard({ business, lang }: { business: BusinessSearchResult['results'][number]; lang: string }) {
+  const category = business.category?.name || 'Business';
+  const location = [business.city?.name, business.country?.name].filter(Boolean).join(', ');
+  const website = business.website ? (/^https?:\/\//i.test(business.website) ? business.website : `https://${business.website}`) : '';
+
+  return <article className="flex h-full flex-col rounded-2xl border border-emerald-200 bg-white p-5 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6"><div className="flex items-start gap-4"><div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 text-xl font-black text-emerald-700">{business.logo_url ? <img src={business.logo_url} alt={`${business.name} logo`} className="h-full w-full object-contain" /> : business.name.slice(0, 1).toUpperCase()}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-xl font-black text-slate-900">{business.name}</h3><span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-800">Verified</span></div><p className="mt-1 text-sm font-semibold text-slate-600">{category}</p><p className="mt-1 text-sm text-slate-500">{location}</p></div></div>{business.description && <p className="mt-4 line-clamp-3 text-sm leading-6 text-slate-600">{business.description}</p>}<div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-600">{business.phone && <span>{business.phone}</span>}{website && <a href={website} target="_blank" rel="noreferrer" className="truncate text-blue-700 hover:underline">{business.website}</a>}</div><Link href={getBusinessCanonicalPath(business, lang)} className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-emerald-700 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800">View listing</Link></article>;
 }
 
 export default function CountryPageClient({ countrySlug }: CountryPageClientProps) {
@@ -35,6 +45,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
   const [country, setCountry] = useState<Country | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [businesses, setBusinesses] = useState<BusinessSearchResult | null>(null);
+  const [verifiedBusinesses, setVerifiedBusinesses] = useState<BusinessSearchResult['results']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -74,12 +85,14 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
         setError(null);
 
         // First load countries to find the current one
-        const [countriesData, businessesData, citiesData] = await Promise.all([
+        const [countriesData, businessesData, claimedData, citiesData] = await Promise.all([
           fetchCountries(),
           fetchBusinessesByLocation(countrySlug, undefined, { 
+            tier: 'free',
             limit, 
             offset: currentPage * limit 
           }),
+          fetchBusinessesByLocation(countrySlug, undefined, { tier: 'claimed', limit: 50 }),
           fetchCities(),
         ]);
 
@@ -99,6 +112,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
         setCountry(currentCountry);
         setCities(countryCities);
         setBusinesses(businessesData);
+        setVerifiedBusinesses(claimedData.results.filter((business) => business.tier === 'claimed' && business.claimed_listing_published !== false));
       } catch (err) {
         console.error(err);
         if (!cancelled) {
@@ -145,7 +159,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
     : [];
 
   const categoryCounts = useMemo(() => {
-    const results = businesses?.results || [];
+    const results = [...(businesses?.results || []), ...verifiedBusinesses];
     const map = new Map<
       string,
       { key: string; label: string; count: number }
@@ -176,7 +190,7 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
     });
 
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [businesses]);
+  }, [businesses, verifiedBusinesses]);
 
   const filteredBusinesses = useMemo(() => {
     if (!selectedCategory) {
@@ -421,6 +435,21 @@ export default function CountryPageClient({ countrySlug }: CountryPageClientProp
                 </button>
               </div>
             )}
+            </div>
+          </section>
+        )}
+
+        {verifiedBusinesses.length > 0 && (
+          <section className="py-8" aria-labelledby="verified-businesses-heading">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Claimed listings</p>
+                <h2 id="verified-businesses-heading" className="mt-1 text-2xl font-semibold text-gray-900">Verified businesses in {country.name}</h2>
+              </div>
+              <span className="text-sm text-slate-500">{verifiedBusinesses.length} verified {verifiedBusinesses.length === 1 ? 'business' : 'businesses'}</span>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              {verifiedBusinesses.map((business) => <VerifiedBusinessCard key={business.id} business={business} lang={lang} />)}
             </div>
           </section>
         )}

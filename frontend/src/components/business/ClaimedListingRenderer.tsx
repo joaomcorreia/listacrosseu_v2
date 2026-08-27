@@ -5,6 +5,7 @@ export type ClaimedListingViewData = {
   description?: string;
   logo_url?: string;
   image_url?: string;
+  gallery_images?: string[];
   background_image?: string;
   phone?: string;
   website?: string;
@@ -22,7 +23,7 @@ export type ClaimedListingViewData = {
   category?: { name: string } | null;
   business_type?: string;
   city?: { name: string } | null;
-  country?: { name: string } | null;
+  country?: { name: string; code?: string } | null;
 };
 
 export default function ClaimedListingRenderer({ listing, preview = false }: { listing: ClaimedListingViewData; preview?: boolean }) {

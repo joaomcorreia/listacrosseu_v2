@@ -19,6 +19,17 @@ type BusinessDetailPageClientProps = {
   discovery?: BusinessDiscovery;
 };
 
+function buildBusinessAddress(business: BusinessDetail) {
+  const address = {
+    '@type': 'PostalAddress',
+    ...(business.country?.name && { addressCountry: business.country.name }),
+    ...(business.city?.name && { addressLocality: business.city.name }),
+    ...(business.address_line1 && { streetAddress: business.address_line1 }),
+    ...(business.postal_code && { postalCode: business.postal_code }),
+  };
+  return Object.keys(address).length > 1 ? address : undefined;
+}
+
 export function BusinessDetailPageClient({ business, lang = 'en', relatedBusinesses = [], relatedHeading, discovery }: BusinessDetailPageClientProps) {
   if (!business) {
     return null;
@@ -31,14 +42,15 @@ export function BusinessDetailPageClient({ business, lang = 'en', relatedBusines
   if (business.tier === 'claimed' && business.claimed_listing_published) {
     const { background } = resolvePresentationStyle(business);
     return <div className="min-h-screen bg-white">
-      <section className="w-full bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} aria-label="Published Claimed Listing">
-        <div className="container mx-auto px-4 py-8"><ClaimedListingRenderer listing={business} /></div>
+      <section className="w-full bg-cover bg-center bg-no-repeat px-4 py-8 sm:px-6" style={{ backgroundImage: `url(${background})` }} aria-label="Published Claimed Listing">
+        <div className="mx-auto w-full max-w-6xl"><ClaimedListingRenderer listing={business} /></div>
       </section>
-      <div className="container mx-auto px-4">{discovery && <div className="mt-10"><BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country.name} countrySlug={business.country.slug} /></div>}</div>
+      <div className="container mx-auto px-4">{discovery && <div className="mt-10"><BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country?.name} countrySlug={business.country?.slug} /></div>}</div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         '@context': 'https://schema.org', '@type': 'LocalBusiness', name: business.name,
         ...(business.description && { description: business.description }),
         ...(business.website && { url: business.website }), ...(business.phone && { telephone: business.phone }),
+        ...(buildBusinessAddress(business) && { address: buildBusinessAddress(business) }),
       }) }} />
     </div>;
   }
@@ -82,7 +94,7 @@ export function BusinessDetailPageClient({ business, lang = 'en', relatedBusines
           </div>
         )}
 
-        {discovery && <div className="mt-10"><BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country.name} countrySlug={business.country.slug} /></div>}
+        {discovery && <div className="mt-10"><BusinessDiscoverySections discovery={discovery} lang={lang} cityName={business.city?.name} citySlug={business.city?.slug} countryName={business.country?.name} countrySlug={business.country?.slug} /></div>}
       </div>
 
       <script
@@ -92,13 +104,7 @@ export function BusinessDetailPageClient({ business, lang = 'en', relatedBusines
             '@context': 'https://schema.org',
             '@type': 'LocalBusiness',
             name: business.name,
-            address: {
-              '@type': 'PostalAddress',
-              addressCountry: business.country?.name,
-              addressLocality: business.city?.name,
-              ...(business.address_line1 && { streetAddress: business.address_line1 }),
-              ...(business.postal_code && { postalCode: business.postal_code }),
-            },
+            ...(buildBusinessAddress(business) && { address: buildBusinessAddress(business) }),
             ...(business.phone && { telephone: business.phone }),
             ...(business.website && { url: business.website }),
             ...(business.description && { description: business.description }),
