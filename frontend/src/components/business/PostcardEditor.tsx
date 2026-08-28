@@ -6,7 +6,7 @@ import ClaimedListingRenderer, { ClaimedListingViewData } from './ClaimedListing
 import PostcardCanvas from './PostcardCanvas';
 import { resolvePresentationStyle } from '@/lib/presentationStyle';
 
-export type PostcardEditorValue = ClaimedListingViewData & { id?: number; category_id?: number | string | null; city_id?: number | string | null; visibility: Record<string, boolean> };
+export type PostcardEditorValue = ClaimedListingViewData & { id?: number; canonical_path?: string; category_id?: number | string | null; city_id?: number | string | null; visibility: Record<string, boolean> };
 type Props = {
   value: PostcardEditorValue;
   onChange: (field: string, value: string | number | string[] | Record<string, boolean> | File) => void;
@@ -65,6 +65,7 @@ export default function PostcardEditor({ value, onChange, categories = [], cityO
   const { overlayOpacity } = resolvePresentationStyle(listing);
   const editingCanvas = canvasMode === 'editing';
   return <div className="space-y-4">
+    {value.canonical_path && onViewLive && published && <div className="mx-auto flex w-full max-w-5xl justify-end"><a href={value.canonical_path} target="_blank" rel="noopener noreferrer" className="rounded border border-slate-300 bg-white px-4 py-3 font-bold text-slate-800">View listing</a></div>}
     <PostcardCanvas listing={listing} mode={canvasMode} categories={categories} cityOptions={cityOptions} onChange={editingCanvas ? onChange : undefined} onLogoUpload={editingCanvas ? handleLogoUpload : undefined} onBackgroundUpload={editingCanvas ? handleBackgroundUpload : undefined} allowMediaUpload={editingCanvas && allowMediaUpload} uploading={uploading} />
     {editingCanvas && <p className="mx-auto max-w-5xl text-right text-xs text-slate-500" aria-live="polite">{value.description?.length || 0} / 500 characters</p>}
     {canvasMode === 'preview' && <p className="mx-auto max-w-5xl text-right text-xs text-slate-500" aria-live="polite">{value.description?.length || 0} / 500 characters</p>}
